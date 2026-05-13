@@ -1,0 +1,293 @@
+# UAP Deployment Questionnaire
+
+This is the source-of-truth list of questions to walk a new user/operator through when deploying UAP on a new VM or machine. The facilitator agent (see `CLAUDE.md` in this folder) asks each question conversationally and records answers in `answers.yaml`.
+
+Defaults reflect UAP's reference build. They're the recommended starting point; the wizard should lead with them.
+
+---
+
+## Section 1 — Identity & branding
+
+### Q1.1 Name of this OS
+Default: **UAP**
+Alternatives: any short, distinctive word.
+Customizes: Plymouth splash title, README, suggested hostname.
+
+### Q1.2 Tagline
+Default: **out of this world**
+Alternatives: any 2–5 word phrase.
+Customizes: Plymouth subtitle, README intro.
+
+### Q1.3 Logo source
+Options:
+- (a) Official Claude logomark (orange asterisk) — UAP default, fits the "AI-first OS" angle.
+- (b) Upload a PNG — user provides path/file (square, transparent background recommended, 800×800 ideal).
+- (c) Generate a text logo — facilitator renders the OS name in JetBrainsMono Nerd Font on the chosen background.
+Customizes: `configs/plymouth/logo.png`, `configs/icons/<name>.png`, Claude `.desktop` entry icon.
+
+### Q1.4 Color palette
+Default: **Tokyo Night** (`#1a1b26` bg, `#7aa2f7` accent — already configured for i3, alacritty, rofi, Typora, GTK).
+Alternatives: Dracula, Nord, Catppuccin, Gruvbox, custom hex.
+Customizes: i3 config color block, alacritty `[colors]`, rofi theme, Typora theme selection, Plymouth background, GTK theme (Adwaita-dark by default; user can swap to a Catppuccin GTK theme etc.).
+
+### Q1.5 Primary monospace font
+Default: **JetBrainsMono Nerd Font**
+Alternatives: FiraCode Nerd Font, CascadiaCode Nerd Font, IosevkaNF.
+Customizes: alacritty, i3bar, rofi, Typora.
+
+---
+
+## Section 2 — Hardware
+
+### Q2.1 Where will UAP run?
+Options:
+- (a) **VM on a hypervisor** (Proxmox / ESXi / libvirt / Hyper-V) — default.
+- (b) Bare metal (consumer or server hardware).
+- (c) Cloud VM (AWS/GCP/Azure/Hetzner/etc.).
+Customizes: Phase 1A vs 1B in runbook, autoinstall ISO behavior.
+
+### Q2.2 Resource tier (skip if Q2.1 = bare metal)
+Options (see Minimum specs table in `../README.md`):
+- (a) Absolute min — 2 vCPU / 2 GB / 25 GB.
+- (b) Comfortable — 2 vCPU / 4 GB / 30 GB.
+- (c) **Recommended** — 4 vCPU / 8 GB / 40 GB. Default.
+- (d) Reference build — 4–8 vCPU / 16 GB / 60 GB+.
+Customizes: VM creation API call.
+
+### Q2.3 Proxmox-specific: disable memory ballooning?
+Default: **yes** if Q2.1 = Proxmox VM.
+Customizes: VM creation flag.
+
+---
+
+## Section 3 — Network & remote access
+
+### Q3.1 Primary remote-access path
+Options:
+- (a) **Tailscale** — recommended; works through NAT, encrypted, simple. Default.
+- (b) WireGuard — self-hosted VPN.
+- (c) ZeroTier.
+- (d) Direct internet (port-forward + firewall) — only for hardened deployments.
+Customizes: Phase 3 of runbook, firewall rules, `/etc/xrdp/xrdp.ini` listening interface.
+
+### Q3.2 RDP listen scope
+Default: **bind to Tailscale interface only** (recommended; xrdp only accepts connections from your tailnet).
+Alternative: listen on all interfaces (less safe, only acceptable behind another firewall).
+Customizes: xrdp `Address=` in `xrdp.ini`, ufw rules.
+
+---
+
+## Section 4 — User account
+
+### Q4.1 Primary username
+Default: **operator chooses**.
+Customizes: created Linux user, all `/home/<user>/...` paths in the runbook get substituted.
+
+### Q4.2 Multi-user or single-user?
+Default: **single-user**.
+Alternative: multi-user with shared/distinct workspaces — wizard will create per-user `~/workspace/` hubs.
+Customizes: sesman policy, `/etc/skel/` templates.
+
+### Q4.3 Auto-login on boot?
+Default: **no** (require password). Recommended for security.
+Alternative: yes — convenient for personal-only VMs behind Tailscale.
+Customizes: `/etc/gdm3/custom.conf` or equivalent.
+
+---
+
+## Section 5 — Applications
+
+### Q5.1 Browsers (multi-select)
+Defaults: **Microsoft Edge** (work) + **Google Chrome** (AI browser automation).
+Optional: Chromium (snap), Firefox (snap), Brave.
+Customizes: Phase 4 install steps + sources.
+
+### Q5.2 Markdown editor
+Default: **Typora** (Tokyo Night theme + monospace-dark, both archived in `../configs/typora-themes/`).
+Alternatives: Obsidian, MarkText, VS Code with markdown extensions, none.
+Customizes: Phase 4 install, theme deployment.
+
+### Q5.3 Terminal-side tools (multi-select)
+Defaults: **btop**, **bat**, **glow**.
+Optional: htop, ripgrep, fd-find, tmux, fzf, jq, yq, neovim.
+Customizes: Phase 4 apt install line.
+
+### Q5.4 File manager
+Default: **thunar** (lightweight, no extra DE deps).
+Alternatives: nautilus (GNOME), dolphin (KDE), none.
+Customizes: Phase 4 install, `$mod+n` keybinding target.
+
+### Q5.5 Screenshot tool
+Default: **flameshot** (already bound to `$mod+Shift+s` and `Print`).
+Alternatives: scrot only, gnome-screenshot.
+Customizes: i3 keybindings.
+
+---
+
+## Section 6 — Window manager & shortcuts
+
+### Q6.1 Window manager
+Default: **i3** (only WM the runbook is built around).
+Alternatives: sway (Wayland equivalent), bspwm, awesome — would require significant rework; flag as future work.
+Customizes: everything in Phase 7.
+
+### Q6.2 Modifier key
+Default: **Mod1 (Alt)**.
+Alternative: Mod4 (Super / Windows / Command) — common for users coming from macOS or wanting Alt free for in-app shortcuts.
+Customizes: `set $mod` line in i3 config; all keybindings shift accordingly.
+
+### Q6.3 Workspace count
+Default: **10** (workspaces 1–9 plus 0).
+Customizes: i3 workspace bindings.
+
+### Q6.4 Active-window title in top bar?
+Default: **yes** — the `i3-workspace-title` daemon renames the focused workspace to `N: <window title>` so the title is always visible next to the workspace number.
+Alternative: no — workspaces remain plain numbers.
+Customizes: i3 `exec_always` line, daemon install.
+
+### Q6.5 Per-window title bars?
+Default: **no** (clean borderless, 2px pixel border only).
+Alternative: yes (`default_border normal` — title bar above each window).
+Customizes: i3 `default_border` line.
+
+---
+
+## Section 7 — AI integration
+
+### Q7.1 Install Claude Code?
+Default: **yes** (the whole point of UAP).
+Customizes: Claude Code install (separate from this runbook today — assumed already installed by operator).
+
+### Q7.2 Autostart Claude on login?
+Default: **yes** — fresh alacritty in `~/workspace/` running `claude --permission-mode=bypassPermissions` on every i3 startup.
+Alternative: no — operator launches manually via `Mod1+c` or rofi entry.
+Customizes: i3 `exec` line.
+
+### Q7.3 Permission mode for the autostarted Claude
+Default: **bypassPermissions** (matches the rest of UAP's AI-collaborator stance).
+Alternative: default prompts. Recommended only for shared/multi-user deployments.
+Customizes: Claude command-line flag.
+
+### Q7.4 Enable remote-control at startup?
+Default: **yes** — every Claude session is reachable from the mobile app immediately. Set via `~/.claude/settings.json: { "remoteControlAtStartup": true }`.
+Customizes: Claude settings.
+
+### Q7.5 Workspace methodology — use ICM (Interpretable Context Methodology)?
+Default: **yes** — `~/workspace/` is the hub with `CLAUDE.md` as router, numbered stage folders inside subworkspaces. Reference: arXiv 2603.16021.
+Alternative: no — free-form folder structure.
+Customizes: `~/workspace/CLAUDE.md` content, expected subworkspace conventions.
+
+### Q7.6 Workspace hub folder name
+Default: **`workspace`** (UAP convention).
+Alternatives: `hub`, `work`, custom.
+Customizes: directory name, i3 autostart `--working-directory`, all references.
+
+### Q7.7 Which subworkspaces to symlink into the hub?
+Default: the subset the user has — typically `ops/`, `dev/`, `uap/`. Add custom names.
+Customizes: symlinks in the hub, layout table in `CLAUDE.md` router.
+
+---
+
+## Section 8 — Boot & theming
+
+### Q8.1 Custom boot splash?
+Default: **yes** — UAP logo on dark background (Plymouth script-theme).
+Alternative: keep stock Ubuntu splash.
+Customizes: Plymouth theme install.
+
+### Q8.2 Wallpaper
+Default: **a single Tokyo Night image** at `~/.config/i3/background`.
+Alternative: solid color, slideshow (feh `--randomize`), user-supplied image.
+Customizes: feh exec line in xinitrc.
+
+### Q8.3 System-wide dark mode (GTK + Qt)?
+Default: **yes** — Adwaita-dark for GTK, qt5gtk2 for Qt. So Typora/Edge/Chrome/thunar/flameshot menus are all dark.
+Customizes: Phase 8.5 install + xinitrc env vars.
+
+---
+
+## Section 9 — Keyboard & locale
+
+### Q9.1 Keyboard layout
+Default: **us** (US English).
+Alternatives: en-CA, en-GB, fr-CA, de, etc.
+Customizes: `setxkbmap`, optional `/etc/xrdp/km-<LCID>.ini` for non-US RDP clients.
+
+### Q9.2 RDP client setting reminder
+The wizard should remind the operator: if RDP clients are Microsoft Remote Desktop (Android / iOS / Windows), toggle **"Use scancode input when available" → OFF** in the client to avoid punctuation mistranslation (see Known Issue F in the README).
+
+---
+
+## Section 10 — Operator profile & use cases
+
+The answers in this section change the *experience* of UAP for this operator — handholding level, learning aids, what gets seeded in `ops/`, and how aggressively defaults are accepted.
+
+### Q10.1 VM / hypervisor experience
+Options:
+- (a) New — never created a VM before.
+- (b) Some — created a VM or two; basic knowledge.
+- (c) Comfortable — runs VMs regularly.
+- (d) Expert — manages hypervisors professionally.
+
+Used by the wizard to decide whether to over-explain Phase 1 (VM creation), whether to offer the autoinstall ISO option, and whether to suggest defensive defaults.
+
+### Q10.2 Linux terminal comfort
+Options:
+- (a) New — mostly used GUI Linux; the terminal is intimidating.
+- (b) Some — knows `cd`, `ls`, edits config files with vim/nano occasionally.
+- (c) Comfortable — daily terminal user, can troubleshoot.
+- (d) Expert — sysadmin or dev professional.
+
+If (a) or (b), the wizard installs **learning aids**: `tldr` (short manpages), a curated `~/workspace/CHEATSHEET.md` covering UAP keybindings + common terminal commands, and a slightly noisier i3bar that shows hints. Skipped for (c)/(d) — they don't need the noise.
+
+### Q10.3 Keyboard-driven workflow comfort
+Options:
+- (a) Prefer mouse / GUI — tiling WMs feel hostile.
+- (b) Mixed — keyboard for code, mouse for navigation.
+- (c) Comfortable — vim-style keybindings, curious about tiling WMs.
+- (d) Power user — already using i3/sway/tmux.
+
+If (a), the wizard should flag a warning: UAP is keyboard-first; an operator who hates that may prefer GNOME/KDE atop the same Ubuntu base. The wizard can offer to install GNOME alongside i3 (or instead of it) and skip Phases 7–9 if so.
+
+### Q10.4 Primary project types (multi-select)
+Pick all that apply. Each selected option seeds an ICM-shaped `ops/pipelines/<type>/` folder structure with starter `CLAUDE.md` and `CONTEXT.md` files.
+
+- (a) **AI agent orchestration** — the canonical UAP use case. Seeds `ops/pipelines/agent-workflows/` with stage folders for brief → plan → execute → review.
+- (b) **Web / app development** — adds `~/dev/` placeholders; doesn't add to `ops/` (dev work lives there, not in ops).
+- (c) **DevOps / SRE / infrastructure** — seeds `ops/pipelines/incidents/` and `ops/runbooks/` with ICM-style intake → triage → postmortem stages.
+- (d) **Customer support / ticketing** (Zendesk, Jira Service Management, your in-house ticketing system, etc.) — seeds `ops/pipelines/desktop-support/` with the reference template (intake → triage → resolve → KB handoff).
+- (e) **Requirements / meetings → spec** — seeds `ops/pipelines/requirements/` matching the reference template (meetings + email → spec → handoff to dev).
+- (f) **UX research** — seeds `ops/pipelines/ux-research/` with stages for interviews → synthesis → recommendations.
+- (g) **Content writing / documentation** — seeds `ops/pipelines/content/` with draft → review → publish.
+- (h) **Data / analytics** — seeds `ops/pipelines/analyses/` with data → notebook → report.
+- (i) **Research / academic** — seeds `ops/pipelines/research/` with lit review → experiment → writeup.
+- (j) **IT helpdesk / sysadmin** (the original UAP use case) — seeds `ops/pipelines/desktop-support/` AND `ops/runbooks/`.
+- (k) **Other** — operator describes their workflow; the wizard helps design an ICM-shaped pipeline for it.
+
+### Q10.5 Add a starter top-level `ops/CONTEXT.md` and `_config/` skeleton?
+Default: **yes** if any project type in Q10.4 maps to `ops/`. The skeleton is the reference template — top-level `CONTEXT.md` (routes to pipelines), `TEAM.md` (who does what), `_config/` (shared voice, glossary, redaction rules), `shared/` (runbooks + ADRs).
+Skip if Q10.4 only has option (b) (web/app dev only — nothing flows through `ops/`).
+
+---
+
+## Section 11 — Deployment metadata (recorded automatically)
+
+### Q11.1 Operator name / email
+For the deployment record in `answers.yaml`.
+
+### Q11.2 Deployment date
+Recorded automatically.
+
+### Q11.3 Notes
+Free-form: anything specific about this deployment the operator wants to record.
+
+---
+
+## After the wizard
+
+The facilitator agent should:
+
+1. Save `answers.yaml` in this folder.
+2. Apply customizations by walking `../README.md` phase by phase, substituting answers.
+3. Mirror any newly-generated artifacts (custom logo, alternative themes, custom keybindings) back into `../configs/` so the runbook reflects this deployment's choices, not just the framework defaults. This satisfies the standing rule that every system tweak is documented in `~/uap/`.
+4. Commit the changes if the user has initialized `~/uap/` as a git repo.

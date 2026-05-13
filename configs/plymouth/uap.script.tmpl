@@ -1,0 +1,17 @@
+# Background fill (from identity.theme.bg_*)
+Window.SetBackgroundTopColor(${BG_R}, ${BG_G}, ${BG_B});
+Window.SetBackgroundBottomColor(${BG_R}, ${BG_G}, ${BG_B});
+
+# Centered logo
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetY() + Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+logo.sprite.SetZ(10);
+
+# Plymouth requires these callbacks even for static themes (no-ops)
+fun refresh_callback() { }
+Plymouth.SetRefreshFunction(refresh_callback);
+
+fun boot_progress_callback(duration, progress) { }
+Plymouth.SetBootProgressFunction(boot_progress_callback);

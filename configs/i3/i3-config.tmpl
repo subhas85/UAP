@@ -1,0 +1,130 @@
+set $mod ${MOD_KEY}
+font pango:${FONT_NAME} 10
+
+# Palette (rendered from identity.theme)
+set $bg       ${BG_HEX}
+set $fg       ${FG_HEX}
+set $accent   ${ACCENT_HEX}
+set $urgent   ${URGENT_HEX}
+set $green    ${GREEN_HEX}
+set $yellow   ${YELLOW_HEX}
+set $purple   ${PURPLE_HEX}
+set $cyan     ${CYAN_HEX}
+set $border   ${BORDER_HEX}
+set $inactive ${INACTIVE_HEX}
+
+client.focused           $accent    $accent    $bg     $green     $accent
+client.focused_inactive  $border    $bg        $fg     $border    $border
+client.unfocused         $border    $bg        $inactive $border  $border
+client.urgent            $urgent    $urgent    $bg     $urgent    $urgent
+client.placeholder       $bg        $bg        $fg     $bg        $bg
+client.background        $bg
+
+gaps inner 8
+gaps outer 4
+default_border pixel 2
+default_floating_border pixel 2
+hide_edge_borders smart
+
+bindsym $mod+Return exec --no-startup-id alacritty
+bindsym $mod+d exec rofi -show drun -show-icons -theme ${HOME_DIR}/.config/rofi/tokyo-night.rasi
+bindsym $mod+q kill
+bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit i3?' -B 'Yes' 'i3-msg exit'"
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+c reload
+bindsym $mod+n exec thunar
+bindsym $mod+shift+Return exec firefox
+bindsym $mod+c exec --no-startup-id alacritty --working-directory ${HOME_DIR}/${WORKSPACE_HUB_NAME} -e claude --permission-mode=${PERMISSION_MODE}
+bindsym Print exec flameshot gui
+bindsym $mod+Shift+s exec flameshot gui
+
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+bindsym $mod+b splith
+bindsym $mod+v splitv
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+f fullscreen toggle
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+
+mode "resize" {
+    bindsym h resize shrink width 10 px
+    bindsym j resize grow height 10 px
+    bindsym k resize shrink height 10 px
+    bindsym l resize grow width 10 px
+    bindsym Left resize shrink width 10 px
+    bindsym Down resize grow height 10 px
+    bindsym Up resize shrink height 10 px
+    bindsym Right resize grow width 10 px
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+    bindsym $mod+r mode "default"
+}
+bindsym $mod+r mode "resize"
+
+floating_modifier $mod
+focus_follows_mouse no
+
+bar {
+    status_command i3status --config ${HOME_DIR}/.config/i3/i3status.conf
+    position top
+    font pango:${FONT_NAME} 10
+    separator_symbol " | "
+    colors {
+        background $bg
+        statusline $fg
+        separator  $inactive
+        focused_workspace  $accent   $accent   $bg
+        active_workspace   $border   $bg       $fg
+        inactive_workspace $bg       $bg       $inactive
+        urgent_workspace   $urgent   $urgent   $bg
+    }
+}
+
+exec --no-startup-id feh --bg-fill ${HOME_DIR}/.config/i3/background 2>/dev/null
+exec --no-startup-id xset s off -dpms
+exec_always --no-startup-id flock -n /tmp/i3-workspace-title.lock ${HOME_DIR}/.local/bin/i3-workspace-title
+
+# Autostart a Claude Code session at the workspace hub
+# (remote-control enabled via ~/.claude/settings.json:remoteControlAtStartup)
+exec --no-startup-id alacritty --working-directory ${HOME_DIR}/${WORKSPACE_HUB_NAME} -e claude --permission-mode=${PERMISSION_MODE}

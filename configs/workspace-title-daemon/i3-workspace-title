@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""Rename the focused i3 workspace to include the active window title.
+
+Subscribes to i3 IPC events; updates the focused workspace name to "N: <title>"
+and keeps non-focused workspaces named just "N".
+
+Safe with `workspace number N` and `move container to workspace number N`
+bindings (i3 matches by number, not full name).
+"""
+import json
+import re
+import socket
+import struct
+import subprocess
+import time
+
+I3_MAGIC = b"i3-ipc"
+I3_RUN_COMMAND = 0
+I3_GET_WORKSPACES = 1
+I3_SUBSCRIBE = 2
+I3_GET_TREE = 4
+EVT_WORKSPACE = 0x80000000
+EVT_WINDOW = 0x80000003
+
+TITLE_MAX_LEN = 60
+
+
+def connect():
+    path = subprocess.check_output(["i3", "--get-socketpath"]).strip().decode()
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(path)
+    return s
+
+
+def send(s, mtype, payload=b""):
+    s.sendall(I3_MAGIC + struct.pack("II", len(payload), mtype) + payload)
+
+
+def recv(s):
+    hdr = b""
+    while len(hdr) < 14:
+        chunk = s.recv(14 - len(hdr))
+        if not chunk:
+            return None, None
+        hdr += chunk
+    length, mtype = struct.unpack("II", hdr[6:14])
+    data = b""
+    while len(data) < length:
+        chunk = s.recv(length - len(data))
+        if not chunk:
+            return None, None
+        data += chunk
+    return mtype, data
+
+
+def request(mtype, payload=b""):
+    s = connect()
+    send(s, mtype, payload)
+    _, data = recv(s)
+    s.close()
+    return json.loads(data) if data else None
+
+
+def find_focused(node):
+    if node.get("focused"):
+        return node
+    for c in node.get("nodes", []) + node.get("floating_nodes", []):
+        r = find_focused(c)
+        if r:
+            return r
+    return None
+
+
+def find_focused_ws(node):
+    if node.get("type") == "workspace" and node.get("focused"):
+        return node
+    for c in node.get("nodes", []) + node.get("floating_nodes", []):
+        r = find_focused_ws(c)
+        if r:
+            return r
+    return None
+
+
+def ws_number(name):
+    m = re.match(r"^(\d+)", name)
+    return int(m.group(1)) if m else None
+
+
+def desired_name(num, title, focused):
+    title = (title or "").strip()[:TITLE_MAX_LEN]
+    if focused and title:
+        return f"{num}: {title}"
+    return str(num)
+
+
+def update():
+    tree = request(I3_GET_TREE)
+    if not tree:
+        return
+    focused = find_focused(tree)
+    title = ""
+    if focused:
+        title = focused.get("window_properties", {}).get("title") or focused.get("name") or ""
+    workspaces = request(I3_GET_WORKSPACES) or []
+    for ws in workspaces:
+        num = ws_number(ws["name"])
+        if num is None:
+            continue
+        new_name = desired_name(num, title, ws["focused"])
+        if ws["name"] != new_name:
+            cmd = f'rename workspace "{ws["name"]}" to "{new_name}"'.encode()
+            request(I3_RUN_COMMAND, cmd)
+
+
+def event_loop():
+    s = connect()
+    send(s, I3_SUBSCRIBE, b'["window","workspace"]')
+    recv(s)  # ack
+    update()
+    while True:
+        mtype, data = recv(s)
+        if data is None:
+            break
+        try:
+            ev = json.loads(data)
+        except Exception:
+            continue
+        change = ev.get("change")
+        if mtype == EVT_WINDOW and change in ("focus", "title", "close"):
+            update()
+        elif mtype == EVT_WORKSPACE and change in ("focus", "init", "empty", "rename"):
+            # Only react to focus events to avoid loops on our own renames
+            if change == "focus":
+                update()
+
+
+def reset_all_workspaces():
+    """Strip titles from all workspace names, e.g. on shutdown."""
+    workspaces = request(I3_GET_WORKSPACES) or []
+    for ws in workspaces:
+        num = ws_number(ws["name"])
+        if num is None:
+            continue
+        new_name = str(num)
+        if ws["name"] != new_name:
+            cmd = f'rename workspace "{ws["name"]}" to "{new_name}"'.encode()
+            request(I3_RUN_COMMAND, cmd)
+
+
+def main():
+    try:
+        while True:
+            try:
+                event_loop()
+            except Exception:
+                time.sleep(1)
+    finally:
+        try:
+            reset_all_workspaces()
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    main()

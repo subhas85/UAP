@@ -1,0 +1,71 @@
+# Example answers.yaml — what the facilitator writes after walking the
+# questionnaire. Real deployments save this as `answers.yaml` (no .example)
+# in this folder.
+
+deployment:
+  date: 2026-05-11
+  operator: operator@example.com
+  notes: example deployment record — replace with your own notes
+
+identity:
+  Q1.1_os_name: UAP
+  Q1.2_tagline: out of this world
+  Q1.3_logo: claude-logomark        # one of: claude-logomark | upload:<path> | generate
+  Q1.4_color_palette: tokyo-night   # tokyo-night | dracula | nord | catppuccin | gruvbox | custom
+  Q1.5_font: JetBrainsMono Nerd Font
+
+hardware:
+  Q2.1_target: proxmox-vm           # proxmox-vm | esxi-vm | libvirt-vm | hyperv-vm | bare-metal | cloud-vm
+  Q2.2_tier: recommended            # min | comfortable | recommended | reference
+  Q2.3_proxmox_no_ballooning: true
+
+network:
+  Q3.1_remote_path: tailscale       # tailscale | wireguard | zerotier | direct
+  Q3.2_rdp_scope: tailscale-only    # tailscale-only | all-interfaces
+
+user:
+  Q4.1_username: operator
+  Q4.2_multi_user: false
+  Q4.3_autologin: false
+
+apps:
+  Q5.1_browsers: [edge, chrome]
+  Q5.2_markdown_editor: typora
+  Q5.3_terminal_tools: [btop, bat, glow]
+  Q5.4_file_manager: thunar
+  Q5.5_screenshot: flameshot
+
+wm:
+  Q6.1_window_manager: i3
+  Q6.2_mod_key: Mod1
+  Q6.3_workspace_count: 10
+  Q6.4_workspace_title_daemon: true
+  Q6.5_per_window_titles: false
+
+ai:
+  Q7.1_claude_code: true
+  Q7.2_autostart: true
+  Q7.3_permission_mode: bypassPermissions
+  Q7.4_remote_control_at_startup: true
+  Q7.5_icm: true
+  Q7.6_workspace_hub_name: workspace
+  Q7.7_subworkspaces: [ops, dev, uap, dashboard]
+
+boot:
+  Q8.1_custom_plymouth: true
+  Q8.2_wallpaper: tokyo-night-default
+  Q8.3_system_dark_mode: true
+
+locale:
+  Q9.1_keyboard_layout: us
+
+operator_profile:
+  Q10.1_vm_experience: comfortable        # new | some | comfortable | expert
+  Q10.2_terminal_comfort: expert          # new | some | comfortable | expert
+  Q10.3_keyboard_comfort: power-user      # gui-preferred | mixed | comfortable | power-user
+  Q10.4_project_types:                    # any subset of the questionnaire list
+    - ai-orchestration
+    - it-helpdesk
+    - devops
+    - requirements
+  Q10.5_seed_ops_skeleton: true

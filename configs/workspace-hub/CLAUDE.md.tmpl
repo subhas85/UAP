@@ -1,0 +1,41 @@
+# ${OS_NAME} Workspace Hub
+
+You're at the top of ${USERNAME}'s ${OS_NAME} workspace hub. **This is an index, not a working directory** — almost every real task should `cd` into one of the subworkspaces first so you load *that* area's `CLAUDE.md` (the ICM "Layer 0" for that scope).
+
+## Layout
+
+```
+~/${WORKSPACE_HUB_NAME}/                hub (you are here)
+${SUBWORKSPACES_BLOCK}
+```
+
+The subworkspaces are symlinks to real folders one level up in `$HOME` — paths like `${HOME_DIR}/<subworkspace>/...` still work everywhere; this hub just gives the agent a clean entry point that excludes user dotfiles by default.
+
+## How to route a task
+
+| User intent | `cd` to |
+|---|---|
+| System-level tweak to this ${OS_NAME} machine (i3, xrdp, fonts, themes, autostart, etc.) | `uap/` |
+| Anything else | the relevant subworkspace from the layout above; if unclear, ask the user which subworkspace owns it |
+
+Each subfolder has its own `CLAUDE.md` with deeper context. Read it on entry.
+
+## Out-of-scope (do NOT browse without explicit user request)
+
+These live in `$HOME` but are not part of this workspace and likely contain secrets or sensitive config:
+
+- `~/.ssh/`, `~/.gnupg/` — keys
+- `~/.claude.json`, `~/.claude/` — Claude Code auth, tokens, transcripts
+- `~/.config/Microsoft/`, `~/.config/google-chrome/`, `~/snap/firefox/` — browser profiles with saved credentials
+- `~/.aws/`, `~/.azure/`, `~/.kube/`, `~/.docker/config.json` — cloud / cluster auth
+- `~/.local/share/keyrings/`, `~/.gnome2/keyrings/` — passwords
+- `~/uap.local/` — this machine's identity, secrets, custom assets
+
+If a task genuinely needs one of these, ask the user first.
+
+## House style
+
+- Plain markdown, tables for routing, short sentences.
+- No emojis unless asked.
+- No trailing "here's what I just did" summaries — say what's next, not what's past.
+- When a system-level change is made on this machine, also mirror it into `~/uap/configs/` and update `~/uap.local/identity.yaml` and re-run `~/uap/setup/apply.sh` so the deployment stays reproducible.

@@ -1,0 +1,31 @@
+general {
+    output_format = "i3bar"
+    colors = true
+    color_good = "${GREEN_HEX}"
+    color_degraded = "${YELLOW_HEX}"
+    color_bad = "${URGENT_HEX}"
+    interval = 5
+}
+
+order += "cpu_usage"
+order += "memory"
+order += "disk /"
+order += "tztime local"
+
+cpu_usage {
+    format = " %usage"
+}
+
+memory {
+    format = " %used / %total"
+    threshold_degraded = "20%"
+    threshold_critical = "10%"
+}
+
+disk "/" {
+    format = " %avail"
+}
+
+tztime local {
+    format = " %a %b %d  %-I:%M %p"
+}

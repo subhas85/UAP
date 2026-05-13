@@ -1,0 +1,367 @@
+#!/usr/bin/env bash
+#
+# apply.sh — render UAP templates from ~/uap.local/identity.yaml and deploy.
+#
+# Usage:
+#   apply.sh                  # apply every component in identity.components_enabled
+#   apply.sh plymouth i3      # apply only the named components
+#   apply.sh --dry-run        # render + show what would change; install nothing
+#   apply.sh --no-sudo        # skip steps that need root
+#
+# See ~/uap/setup/DESIGN.md for the contract.
+#
+set -euo pipefail
+
+# --- Config / paths -------------------------------------------------------
+
+UAP_DIR="${UAP_DIR:-$HOME/uap}"
+LOCAL_DIR="${LOCAL_DIR:-$HOME/uap.local}"
+IDENTITY="$LOCAL_DIR/identity.yaml"
+RENDER_DIR="$LOCAL_DIR/rendered"
+SCHEMA_VERSION=1
+
+DRY_RUN=0
+NO_SUDO=0
+COMPONENTS_REQUESTED=()
+
+# --- Helpers --------------------------------------------------------------
+
+log()  { printf '\033[1;36m[apply.sh]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[apply.sh]\033[0m WARN: %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[apply.sh]\033[0m ERROR: %s\n' "$*" >&2; exit 1; }
+
+need() {
+    command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not installed."
+}
+
+run_sudo() {
+    if [ "$NO_SUDO" = 1 ]; then
+        log "[--no-sudo] would run: sudo $*"
+    else
+        sudo "$@"
+    fi
+}
+
+# Parse args
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run)  DRY_RUN=1;  shift ;;
+        --no-sudo)  NO_SUDO=1;  shift ;;
+        -h|--help)  sed -n '3,12p' "$0"; exit 0 ;;
+        --*)        die "unknown flag: $1" ;;
+        *)          COMPONENTS_REQUESTED+=("$1"); shift ;;
+    esac
+done
+
+# --- Prereqs --------------------------------------------------------------
+
+need envsubst
+need yq
+[ -f "$IDENTITY" ] || die "no identity file at $IDENTITY. Run the wizard first."
+
+# Validate schema version
+file_schema=$(yq '.schema_version' "$IDENTITY")
+[ "$file_schema" = "$SCHEMA_VERSION" ] \
+    || die "identity.yaml schema_version is '$file_schema', apply.sh expects '$SCHEMA_VERSION'."
+
+# --- Export identity values as env vars for envsubst ---------------------
+
+export OS_NAME OS_NAME_LOWER TAGLINE HOSTNAME HOME_DIR
+export USERNAME OPERATOR_EMAIL OPERATOR_ROLE
+export PALETTE FONT_NAME FONT_SIZE
+export BG_HEX BG_ALT_HEX BG_R BG_G BG_B
+export FG_HEX FG_DIM_HEX
+export ACCENT_HEX URGENT_HEX GREEN_HEX YELLOW_HEX PURPLE_HEX CYAN_HEX
+export BORDER_HEX INACTIVE_HEX
+export MOD_KEY WORKSPACE_COUNT GTK_THEME
+export WORKSPACE_HUB_NAME PERMISSION_MODE
+export RDP_LCID SESMAN_POLICY INSTALL_RECONNECTWM
+export SUBWORKSPACES_BLOCK
+
+OS_NAME=$(yq         '.os.name'              "$IDENTITY")
+OS_NAME_LOWER=$(yq   '.os.name_lower'        "$IDENTITY")
+TAGLINE=$(yq         '.os.tagline'           "$IDENTITY")
+HOSTNAME=$(yq        '.os.hostname'          "$IDENTITY")
+
+USERNAME=$(yq        '.operator.username'    "$IDENTITY")
+OPERATOR_EMAIL=$(yq  '.operator.email'       "$IDENTITY")
+OPERATOR_ROLE=$(yq   '.operator.role'        "$IDENTITY")
+HOME_DIR="/home/${USERNAME}"
+
+PALETTE=$(yq         '.theme.palette'        "$IDENTITY")
+FONT_NAME=$(yq       '.theme.font'           "$IDENTITY")
+FONT_SIZE=$(yq       '.theme.font_size'      "$IDENTITY")
+BG_HEX=$(yq          '.theme.bg_hex'         "$IDENTITY")
+BG_ALT_HEX=$(yq      '.theme.bg_alt_hex'     "$IDENTITY")
+BG_R=$(yq            '.theme.bg_r'           "$IDENTITY")
+BG_G=$(yq            '.theme.bg_g'           "$IDENTITY")
+BG_B=$(yq            '.theme.bg_b'           "$IDENTITY")
+FG_HEX=$(yq          '.theme.fg_hex'         "$IDENTITY")
+FG_DIM_HEX=$(yq      '.theme.fg_dim_hex'     "$IDENTITY")
+ACCENT_HEX=$(yq      '.theme.accent_hex'     "$IDENTITY")
+URGENT_HEX=$(yq      '.theme.urgent_hex'     "$IDENTITY")
+GREEN_HEX=$(yq       '.theme.green_hex'      "$IDENTITY")
+YELLOW_HEX=$(yq      '.theme.yellow_hex'     "$IDENTITY")
+PURPLE_HEX=$(yq      '.theme.purple_hex'     "$IDENTITY")
+CYAN_HEX=$(yq        '.theme.cyan_hex'       "$IDENTITY")
+BORDER_HEX=$(yq      '.theme.border_hex'     "$IDENTITY")
+INACTIVE_HEX=$(yq    '.theme.inactive_hex'   "$IDENTITY")
+
+MOD_KEY=$(yq           '.wm.mod_key'                  "$IDENTITY")
+WORKSPACE_COUNT=$(yq   '.wm.workspace_count'          "$IDENTITY")
+GTK_THEME=$(yq         '.theme.gtk_theme'             "$IDENTITY")
+
+WORKSPACE_HUB_NAME=$(yq '.ai.workspace_hub_name'      "$IDENTITY")
+PERMISSION_MODE=$(yq    '.ai.permission_mode'         "$IDENTITY")
+
+RDP_LCID=$(yq             '.locale.rdp_lcid'             "$IDENTITY")
+SESMAN_POLICY=$(yq        '.xrdp.sesman_policy'          "$IDENTITY")
+INSTALL_RECONNECTWM=$(yq  '.xrdp.install_reconnectwm'    "$IDENTITY")
+
+# Generate the subworkspace markdown block from identity.ai.subworkspaces[]
+SUBWORKSPACES_BLOCK=$(
+    while IFS= read -r ws; do
+        [ -z "$ws" ] && continue
+        printf "  %-9s → ~/%s\n" "${ws}/" "${ws}"
+    done < <(yq '.ai.subworkspaces[]' "$IDENTITY")
+)
+
+# Allow-list of variables that envsubst will substitute. Anything else (literal $foo, $PATH, etc.) is left alone.
+TEMPLATE_VARS='${OS_NAME} ${OS_NAME_LOWER} ${TAGLINE} ${HOSTNAME} ${HOME_DIR} ${USERNAME} ${OPERATOR_EMAIL} ${OPERATOR_ROLE} ${FONT_NAME} ${FONT_SIZE} ${BG_HEX} ${BG_ALT_HEX} ${BG_R} ${BG_G} ${BG_B} ${FG_HEX} ${FG_DIM_HEX} ${ACCENT_HEX} ${URGENT_HEX} ${GREEN_HEX} ${YELLOW_HEX} ${PURPLE_HEX} ${CYAN_HEX} ${BORDER_HEX} ${INACTIVE_HEX} ${MOD_KEY} ${WORKSPACE_COUNT} ${WORKSPACE_HUB_NAME} ${PERMISSION_MODE} ${RDP_LCID} ${GTK_THEME} ${SUBWORKSPACES_BLOCK}'
+
+# --- Generic render: walk configs/<component>/, produce rendered/<component>/
+
+render_component() {
+    local component="$1"
+    local src="$UAP_DIR/configs/$component"
+    local dst="$RENDER_DIR/$component"
+
+    [ -d "$src" ] || die "component '$component': no source dir at $src"
+    mkdir -p "$dst"
+
+    while IFS= read -r -d '' file; do
+        local rel="${file#"$src"/}"
+        if [[ "$rel" == *.tmpl ]]; then
+            local out_rel="${rel%.tmpl}"
+            # Rename theme-named files so they match OS_NAME_LOWER
+            out_rel="${out_rel//uap./${OS_NAME_LOWER}.}"
+            mkdir -p "$(dirname "$dst/$out_rel")"
+            envsubst "$TEMPLATE_VARS" < "$file" > "$dst/$out_rel"
+        else
+            mkdir -p "$(dirname "$dst/$rel")"
+            cp -f "$file" "$dst/$rel"
+        fi
+    done < <(find "$src" -type f -print0)
+
+    # If identity provides an asset override (e.g. assets.logo for plymouth), use it.
+    if [ "$component" = "plymouth" ]; then
+        local logo_rel
+        logo_rel=$(yq '.assets.logo // ""' "$IDENTITY")
+        if [ -n "$logo_rel" ] && [ -f "$LOCAL_DIR/$logo_rel" ]; then
+            cp -f "$LOCAL_DIR/$logo_rel" "$dst/logo.png"
+        fi
+    fi
+
+    log "$component: rendered into $dst"
+}
+
+# --- Component install hooks ---------------------------------------------
+
+install_workspace_hub() {
+    local render="$RENDER_DIR/workspace-hub"
+    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
+
+    install -d "$hub"
+
+    # Symlink each declared subworkspace from ~/<name> into the hub
+    while IFS= read -r ws; do
+        [ -z "$ws" ] && continue
+        if [ -d "$HOME_DIR/$ws" ]; then
+            ln -sfn "$HOME_DIR/$ws" "$hub/$ws"
+        else
+            warn "workspace-hub: ~/$ws not found — symlink skipped"
+        fi
+    done < <(yq '.ai.subworkspaces[]' "$IDENTITY")
+
+    install -m 644 "$render/CLAUDE.md" "$hub/CLAUDE.md"
+    log "workspace-hub: installed CLAUDE.md + symlinks at $hub"
+}
+
+install_i3() {
+    local render="$RENDER_DIR/i3"
+    local target="$HOME_DIR/.config/i3"
+
+    install -d "$target"
+    install -m 644 "$render/i3-config"      "$target/config"
+    install -m 644 "$render/i3status.conf"  "$target/i3status.conf"
+
+    # Live reload (safe — preserves session/windows)
+    DISPLAY="${DISPLAY:-:10}" i3-msg reload >/dev/null 2>&1 || true
+    log "i3: installed config + i3status.conf, sent reload"
+}
+
+install_typora_themes() {
+    local render="$RENDER_DIR/typora-themes"
+    local target="$HOME_DIR/.config/Typora/themes"
+
+    install -d "$target"
+    cp -r "$render"/* "$target/"
+    log "typora-themes: copied themes to $target/"
+}
+
+install_workspace_title_daemon() {
+    local render="$RENDER_DIR/workspace-title-daemon"
+
+    install -d "$HOME_DIR/.local/bin"
+    install -m 755 "$render/i3-workspace-title" "$HOME_DIR/.local/bin/i3-workspace-title"
+    log "workspace-title-daemon: installed ${HOME_DIR}/.local/bin/i3-workspace-title (i3 will exec_always launch it)"
+}
+
+install_desktop_entries() {
+    local render="$RENDER_DIR/desktop-entries"
+
+    install -d "$HOME_DIR/.local/share/applications" "$HOME_DIR/.local/share/icons/claude"
+
+    install -m 644 "$render/claude-workspace.desktop" \
+        "$HOME_DIR/.local/share/applications/claude-workspace.desktop"
+    install -m 644 "$render/claude.png" \
+        "$HOME_DIR/.local/share/icons/claude/claude.png"
+
+    update-desktop-database "$HOME_DIR/.local/share/applications" 2>/dev/null || true
+
+    # Pre-seed rofi drun cache to keep Claude at top until usage history accumulates
+    local cache="$HOME_DIR/.cache/rofi3.druncache"
+    if [ -f "$cache" ] && ! grep -q 'claude-workspace.desktop' "$cache"; then
+        echo "20 claude-workspace.desktop" | cat - "$cache" > "$cache.new" && mv "$cache.new" "$cache"
+        log "desktop-entries: pre-seeded rofi cache"
+    fi
+
+    log "desktop-entries: installed Claude launcher + icon"
+}
+
+install_xrdp() {
+    local render="$RENDER_DIR/xrdp"
+
+    # 1. Patch /etc/xrdp/sesman.ini's Policy line to our chosen value (idempotent)
+    if [ -f /etc/xrdp/sesman.ini ]; then
+        local current
+        current=$(grep -E '^Policy=' /etc/xrdp/sesman.ini | head -1 || true)
+        local desired="Policy=${SESMAN_POLICY}"
+        if [ "$current" != "$desired" ]; then
+            run_sudo sed -i "s/^Policy=.*/${desired}/" /etc/xrdp/sesman.ini
+            log "xrdp: sesman.ini Policy set to ${SESMAN_POLICY} (was: ${current:-absent})"
+        else
+            log "xrdp: sesman.ini Policy already ${SESMAN_POLICY}"
+        fi
+    else
+        warn "xrdp: /etc/xrdp/sesman.ini not found — xrdp probably not installed yet, skipping Policy patch"
+    fi
+
+    # 2. Install reconnectwm.sh (stuck-modifier release after RDP reconnect)
+    if [ "$INSTALL_RECONNECTWM" = "true" ] && [ -f "$render/reconnectwm.sh" ]; then
+        run_sudo install -m 755 -o root -g root "$render/reconnectwm.sh" /etc/xrdp/reconnectwm.sh
+        log "xrdp: installed /etc/xrdp/reconnectwm.sh"
+    fi
+
+    # 3. If RDP client locale is non-US-English and matching keymap is missing, mirror the US keymap.
+    if [ -n "$RDP_LCID" ] && [ "$RDP_LCID" != "0x00000409" ]; then
+        local lcid_short="${RDP_LCID#0x}"
+        local lcid_lower="${lcid_short,,}"
+        local km_file="/etc/xrdp/km-${lcid_lower}.ini"
+        if [ ! -f "$km_file" ] && [ -f /etc/xrdp/km-00000409.ini ]; then
+            run_sudo cp /etc/xrdp/km-00000409.ini "$km_file"
+            log "xrdp: created $km_file from km-00000409.ini (US fallback)"
+        fi
+    fi
+}
+
+install_xinitrc() {
+    local render="$RENDER_DIR/xinitrc"
+    install -m 755 "$render/xinitrc" "$HOME_DIR/.xinitrc"
+    ln -sf "$HOME_DIR/.xinitrc" "$HOME_DIR/.xsession"
+    log "xinitrc: installed to $HOME_DIR/.xinitrc (+ .xsession symlink)"
+}
+
+install_gtk_theme() {
+    local render="$RENDER_DIR/gtk-theme"
+    for v in 3.0 4.0; do
+        install -d "$HOME_DIR/.config/gtk-$v"
+        install -m 644 "$render/gtk-$v/settings.ini" "$HOME_DIR/.config/gtk-$v/settings.ini"
+    done
+    # Apply via gsettings too (idempotent — gsettings tolerates same value)
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface gtk-theme "$GTK_THEME"      2>/dev/null || true
+    log "gtk-theme: installed gtk-{3.0,4.0}/settings.ini + gsettings"
+}
+
+install_alacritty() {
+    local render="$RENDER_DIR/alacritty"
+    local target="$HOME_DIR/.config/alacritty"
+
+    install -d "$target"
+    install -m 644 "$render/alacritty.toml" "$target/alacritty.toml"
+    log "alacritty: installed config to $target/alacritty.toml"
+}
+
+install_rofi() {
+    local render="$RENDER_DIR/rofi"
+    local target="$HOME_DIR/.config/rofi"
+
+    install -d "$target"
+    install -m 644 "$render/tokyo-night.rasi" "$target/tokyo-night.rasi"
+    log "rofi: installed theme to $target/tokyo-night.rasi"
+}
+
+install_plymouth() {
+    local theme="$OS_NAME_LOWER"
+    local render="$RENDER_DIR/plymouth"
+    local target="/usr/share/plymouth/themes/$theme"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "plymouth: DRY-RUN — would install $render/* to $target/"
+        diff -q "$render/${theme}.plymouth" "$target/${theme}.plymouth" 2>/dev/null \
+            && log "plymouth: .plymouth identical to live" \
+            || log "plymouth: .plymouth would change"
+        return 0
+    fi
+
+    run_sudo install -d "$target"
+    run_sudo install -m 644 "$render/${theme}.plymouth" "$target/${theme}.plymouth"
+    run_sudo install -m 644 "$render/${theme}.script"   "$target/${theme}.script"
+    run_sudo install -m 644 "$render/logo.png"          "$target/logo.png"
+
+    run_sudo update-alternatives --install \
+        /usr/share/plymouth/themes/default.plymouth default.plymouth \
+        "$target/${theme}.plymouth" 100 >/dev/null
+
+    run_sudo update-alternatives --set default.plymouth "$target/${theme}.plymouth"
+
+    run_sudo update-initramfs -u >/dev/null
+    log "plymouth: installed theme '$theme' and regenerated initramfs"
+}
+
+# --- Drive components -----------------------------------------------------
+
+# Pick the list of components to run
+if [ "${#COMPONENTS_REQUESTED[@]}" -gt 0 ]; then
+    COMPONENTS=("${COMPONENTS_REQUESTED[@]}")
+else
+    mapfile -t COMPONENTS < <(yq '.components_enabled[]' "$IDENTITY")
+fi
+
+[ "${#COMPONENTS[@]}" -eq 0 ] && die "no components selected (identity.components_enabled is empty?)."
+
+log "identity: ${OS_NAME} (${OS_NAME_LOWER}) — '${TAGLINE}' — operator ${USERNAME}"
+log "components: ${COMPONENTS[*]}"
+
+for component in "${COMPONENTS[@]}"; do
+    render_component "$component"
+    install_hook="install_${component//-/_}"
+    if declare -F "$install_hook" >/dev/null; then
+        "$install_hook"
+    else
+        warn "$component: no install_$component() hook defined yet — rendered only, not installed."
+    fi
+done
+
+log "done."

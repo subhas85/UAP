@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Claude (${WORKSPACE_HUB_NAME})
+GenericName=Claude Code
+Comment=Open Claude Code in ~/${WORKSPACE_HUB_NAME} with ${PERMISSION_MODE} + remote-control
+Exec=alacritty --working-directory ${HOME_DIR}/${WORKSPACE_HUB_NAME} -e claude --permission-mode=${PERMISSION_MODE}
+Icon=${HOME_DIR}/.local/share/icons/claude/claude.png
+Terminal=false
+Categories=Development;Utility;
+Keywords=claude;ai;agent;cli;
+StartupNotify=false

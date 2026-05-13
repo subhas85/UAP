@@ -1,0 +1,16 @@
+#!/bin/sh
+export XDG_SESSION_TYPE=x11
+export GDK_BACKEND=x11
+export QT_QPA_PLATFORM=xcb
+unset WAYLAND_DISPLAY
+unset OZONE_PLATFORM
+
+# System-wide dark mode for GTK 2/3/4 apps (Adwaita-dark) and Qt apps follow GTK
+export GTK_THEME=Adwaita:dark
+export QT_STYLE_OVERRIDE=Adwaita-Dark
+export QT_QPA_PLATFORMTHEME=gtk2
+[ -f ~/.Xresources ] && xrdb -merge ~/.Xresources
+xsetroot -cursor_name left_ptr
+xset s off -dpms
+feh --bg-fill ~/.config/i3/background 2>/dev/null &
+exec i3
