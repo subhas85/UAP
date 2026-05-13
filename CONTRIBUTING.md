@@ -30,7 +30,7 @@ File issues at `https://github.com/subhas85/uap/issues`. A good bug report inclu
 
 - **Bash scripts** start with `#!/usr/bin/env bash` and `set -euo pipefail`. Quote all variable expansions. Prefer `install -m <mode>` over `cp` + `chmod`.
 - **Templates** use GNU `envsubst` syntax: `${VAR_NAME}` (curly braces mandatory). Files end in `.tmpl`. Static files don't need the suffix.
-- **One component per folder** under `configs/<component>/`. Each component owns its templates, assets, and (if needed) install hook in `apply.sh`.
+- **One component per folder** under the appropriate scope: `os/<component>/` for system / desktop / window manager bits, `ai/<component>/` for Claude Code and assistant integration, `workflows/<component>/` for ICM pipeline starters. Each component owns its templates, assets, and (if needed) install hook in `apply.sh`. `apply.sh` resolves a component name by searching `os/` → `ai/` → `workflows/`, so component names must be unique across scopes.
 - **New variables** must be documented in `setup/DESIGN.md` (under the `identity.yaml` schema section) and added to the `identity.yaml` example.
 - **Markdown** uses sentence-case headings and fenced code blocks tagged with the language. No trailing whitespace.
 - **No emojis** in code, config, or docs unless the user explicitly asks.

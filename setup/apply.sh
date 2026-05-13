@@ -131,12 +131,24 @@ TEMPLATE_VARS='${OS_NAME} ${OS_NAME_LOWER} ${TAGLINE} ${HOSTNAME} ${HOME_DIR} ${
 
 # --- Generic render: walk configs/<component>/, produce rendered/<component>/
 
+# Resolve a component name to its source directory. Components live under one
+# of the top-level scopes: os/, ai/, workflows/.  Search in that order.
+component_source_dir() {
+    local component="$1"
+    for scope in os ai workflows; do
+        if [ -d "$UAP_DIR/$scope/$component" ]; then
+            printf '%s' "$UAP_DIR/$scope/$component"
+            return 0
+        fi
+    done
+    return 1
+}
+
 render_component() {
     local component="$1"
-    local src="$UAP_DIR/configs/$component"
+    local src
+    src=$(component_source_dir "$component") || die "component '$component': not found under uap/{os,ai,workflows}/"
     local dst="$RENDER_DIR/$component"
-
-    [ -d "$src" ] || die "component '$component': no source dir at $src"
     mkdir -p "$dst"
 
     while IFS= read -r -d '' file; do

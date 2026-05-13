@@ -11,8 +11,8 @@ You're the facilitator for a fresh UAP deployment. Your job is to walk the human
 5. **Skip questions whose answer is implied** by a prior answer. (e.g., if Q2.1 = "Bare metal", skip Q2.2 about VM specs and ask hardware specs differently.)
 6. **At the end, summarize the answers** and confirm before doing any system changes.
 7. **Then drive the customization.** Walk through `../README.md` phase-by-phase, applying only the customizations chosen. For each phase:
-   - If the answer matches the UAP default, apply the archived config from `../configs/` verbatim.
-   - If the answer is custom, generate the customized file by editing the archived template, and save the result back to `../configs/` so the runbook stays in sync (per the feedback rule about mirroring tweaks).
+   - If the answer matches the UAP default, apply the archived config from its scope folder (`../os/<component>/`, `../ai/<component>/`, `../workflows/<component>/`) verbatim.
+   - If the answer is custom, generate the customized file by editing the archived template, and save the result back into the same scope folder so the runbook stays in sync (per the feedback rule about mirroring tweaks).
 
 ## Tone
 
@@ -35,8 +35,8 @@ See `references.md` for the ICM paper and a one-paragraph summary if the operato
 Some questions name a theme/font/option that UAP doesn't ship with yet (e.g., "Dracula" instead of "Tokyo Night"). In that case:
 
 - Record the user's answer.
-- During customization, generate the missing artifact (download a theme, render a logo, write a config) and archive it under `../configs/` so future deployments inherit it.
-- Don't refuse a choice just because the asset isn't already in `../configs/`. Generate it.
+- During customization, generate the missing artifact (download a theme, render a logo, write a config) and archive it under the appropriate scope folder (`../os/<component>/`, `../ai/<component>/`, or `../workflows/<component>/`) so future deployments inherit it.
+- Don't refuse a choice just because the asset isn't already shipped. Generate it.
 
 ## What "done" looks like
 
@@ -44,5 +44,5 @@ After the wizard:
 
 - `answers.yaml` exists in this folder and captures every Q&A.
 - The live system reflects the chosen customizations (configs deployed, packages installed, services running).
-- `../README.md` and `../configs/` reflect *this deployment's* customizations, not just the framework defaults. (Per feedback rule: any tweak must be mirrored into the runbook.)
+- `../README.md` and the scope folders (`../os/`, `../ai/`, `../workflows/`) reflect *this deployment's* customizations, not just the framework defaults. (Per feedback rule: any tweak must be mirrored into the runbook.)
 - A short note in `answers.yaml` records the date of the deployment and the operator (whoever ran the wizard).

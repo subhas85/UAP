@@ -8,7 +8,7 @@ This is the locked design for how UAP separates the **pristine framework** (the 
 ┌────────────────────────────────────────────────────────────────────────┐
 │  ~/uap/   ← framework (git-tracked at github.com/subhas85/uap)         │
 │  ─────                                                                 │
-│   configs/                                                             │
+│   os/                       ← OS / desktop-layer components            │
 │     plymouth/                                                          │
 │       uap.plymouth.tmpl   ← template with ${OS_NAME} ${TAGLINE} etc.   │
 │       uap.script.tmpl                                                  │
@@ -16,6 +16,18 @@ This is the locked design for how UAP separates the **pristine framework** (the 
 │     i3/i3-config.tmpl                                                  │
 │     alacritty/alacritty.toml.tmpl                                      │
 │     …                                                                  │
+│   ai/                       ← AI-layer components                      │
+│     workspace-hub/CLAUDE.md.tmpl                                       │
+│     desktop-entries/claude-workspace.desktop.tmpl                      │
+│     …                                                                  │
+│   workflows/                ← ICM starter pipelines (requirements,     │
+│     requirements/             helpdesk, incidents, dev). Wizard seeds  │
+│     helpdesk/                 selected ones into ~/ops/pipelines/.     │
+│     incidents/                                                         │
+│     dev/                                                               │
+│   profiles/                 ← pre-canned identity.yaml files           │
+│     personal.yaml           (skip the wizard if a profile fits)        │
+│     production.yaml                                                    │
 │   setup/                                                               │
 │     QUESTIONNAIRE.md                                                   │
 │     CLAUDE.md                                                          │
@@ -75,13 +87,13 @@ Usage in `apply.sh`:
 ```bash
 export OS_NAME TAGLINE BG_R BG_G BG_B   # only the vars we want substituted
 envsubst '${OS_NAME} ${TAGLINE} ${BG_R} ${BG_G} ${BG_B}' \
-    < ~/uap/configs/plymouth/uap.plymouth.tmpl \
+    < ~/uap/os/plymouth/uap.plymouth.tmpl \
     > ~/uap.local/rendered/plymouth/${OS_NAME_LOWER}.plymouth
 ```
 
 **Escape hatch.** Templates without any `${…}` placeholders are still valid; envsubst is a no-op on them. This means a static config can be migrated by simply renaming `foo.conf` → `foo.conf.tmpl` even before any variables are extracted, and `apply.sh` will handle it uniformly. Mix-and-match migration during Phase 3 is fine.
 
-**Files that can't be templated** (binaries: PNG icons, font files, etc.) are not renamed. `apply.sh` treats `.tmpl` files specially; everything else under `configs/<component>/` is copied through verbatim.
+**Files that can't be templated** (binaries: PNG icons, font files, etc.) are not renamed. `apply.sh` treats `.tmpl` files specially; everything else under a component's folder (`os/<component>/`, `ai/<component>/`, etc.) is copied through verbatim.
 
 ## `identity.yaml` schema
 
@@ -188,7 +200,7 @@ components_enabled:              # which apply.sh components to run; lets operat
 1. **Read** `~/uap.local/identity.yaml`. Validate `schema_version`. Export every leaf value as `${VAR}` (uppercased, dot-separated). E.g. `theme.bg_r` → `${THEME_BG_R}`. Also export some convenience shortcuts like `${OS_NAME}`, `${OS_NAME_LOWER}`, `${BG_R}`.
 
 2. **Iterate** through `identity.components_enabled`. For each component:
-   - Locate `~/uap/configs/<component>/` (the template source).
+   - Locate the source dir by searching `~/uap/os/<component>/`, then `~/uap/ai/<component>/`, then `~/uap/workflows/<component>/`. First match wins.
    - For every file in there:
      - If filename ends `.tmpl`: render with envsubst (allow-list mode) into `~/uap.local/rendered/<component>/<filename-without-.tmpl>`.
      - Otherwise (binary, asset, static): copy verbatim into the same render path.
@@ -237,7 +249,12 @@ If a framework update changes the schema (rare, requires schema_version bump), a
 
 ## Adding a new templatable component (instructions for the framework's future)
 
-1. Place template + asset files at `~/uap/configs/<component>/`. Templates end `.tmpl`.
+1. Place template + asset files at the right scope folder:
+   - `~/uap/os/<component>/` for OS/desktop-layer things (plymouth, i3, alacritty, etc.)
+   - `~/uap/ai/<component>/` for AI-layer things (workspace hub, Claude launcher, concierge)
+   - `~/uap/workflows/<component>/` for ICM pipeline starters
+
+   Templates end `.tmpl`.
 2. Add the component name to the default `components_enabled` list in the `identity.yaml` example/schema.
 3. Add an `install_<component>()` function in `apply.sh` that knows where rendered files belong on the live system.
 4. Run `apply.sh <component>` to test.

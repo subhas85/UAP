@@ -79,29 +79,27 @@ Browsers (especially Chrome with AI browser-automation extensions) are the domin
 ## Layout of this folder
 
 ```
-configs/                        # Verbatim config files to deploy
-  i3-config                     → ~/.config/i3/config
-  i3status.conf                 → ~/.config/i3/i3status.conf
-  alacritty.toml                → ~/.config/alacritty/alacritty.toml
-  rofi-tokyo-night.rasi         → ~/.config/rofi/tokyo-night.rasi
-  xinitrc                       → ~/.xinitrc (and symlink ~/.xsession → ~/.xinitrc)
-  typora-themes/                → ~/.config/Typora/themes/  (Monospace Dark + Tokyo Night)
-  gtk-3.0/settings.ini          → ~/.config/gtk-3.0/settings.ini  (Adwaita-dark)
-  gtk-4.0/settings.ini          → ~/.config/gtk-4.0/settings.ini  (Adwaita-dark)
-  plymouth/                     → /usr/share/plymouth/themes/uap/  (boot splash)
-  xrdp-sesman.ini               → /etc/xrdp/sesman.ini  (Policy=UBD so reconnects reattach reliably)
-  workspace/CLAUDE.md           → ~/workspace/CLAUDE.md  (UAP workspace hub router — ICM Layer 0)
-  desktop-entries/              → ~/.local/share/applications/  (rofi/menu launchers, e.g. Claude workspace)
-scripts/
-  i3-workspace-title            → ~/.local/bin/i3-workspace-title
-  reconnectwm.sh                → /etc/xrdp/reconnectwm.sh
-setup/
-  CLAUDE.md                     # facilitator instructions for the deployment wizard
-  QUESTIONNAIRE.md              # source-of-truth list of questions to ask a new operator
-  answers.example.yaml          # shape of the answers file produced by a wizard run
-  references.md                 # links to ICM paper, upstream docs, known issues
 bootstrap.sh                    # kickstart entry point — installs Claude, launches wizard
+setup/                          # deployment engine
+  QUESTIONNAIRE.md              # source-of-truth list of questions for a new operator
+  apply.sh                      # renders templates from identity.yaml and installs each component
+  answers.example.yaml          # shape of the identity file (~/uap.local/identity.yaml)
+  DESIGN.md                     # design notes for the deployment system
+  references.md                 # links to ICM paper, upstream docs, known issues
+profiles/                       # pre-canned identity.yaml files (skip the wizard if one fits)
+  personal.yaml                 # single-operator homelab
+  production.yaml               # shared / production-ish deployment
+os/                             # system chrome — what Ubuntu looks like
+  i3/, alacritty/, rofi/, xinitrc/, typora-themes/
+  gtk-theme/, plymouth/, xrdp/, workspace-title-daemon/
+ai/                             # Claude-Code-facing pieces
+  workspace-hub/                # ~/workspace/CLAUDE.md router template (ICM Layer 0)
+  desktop-entries/              # rofi launcher + icon for "Claude (workspace)"
+workflows/                      # reusable workflow patterns (each with its own CLAUDE.md)
+  dev/, helpdesk/, incidents/, requirements/
 ```
+
+Files ending in `.tmpl` under `os/`, `ai/`, and `workflows/` are envsubst templates rendered by `setup/apply.sh` from `~/uap.local/identity.yaml`. Files without `.tmpl` are copied verbatim. See `setup/DESIGN.md` for the deployment contract.
 
 ---
 
@@ -212,81 +210,61 @@ Verify: `fc-list | grep -i 'JetBrainsMono Nerd'` should print several entries.
 
 ## Phase 6 — Configure xrdp
 
-Default xrdp puts you in a Xorg session. To make it launch i3 on connect:
+Default xrdp puts you in a Xorg session. UAP wants it to launch i3 on connect, survive reconnects without stuck modifier keys, and tolerate non-US RDP locales. `setup/apply.sh` handles the file-deploy parts; a few system-level steps remain manual.
 
-1. Create the session glue (the X session executes `~/.xinitrc`, which `exec i3`s):
+1. Render and install the xinitrc + xrdp components:
    ```bash
-   cp configs/xinitrc ~/.xinitrc
-   chmod +x ~/.xinitrc
-   ln -sf ~/.xinitrc ~/.xsession
+   ~/uap/setup/apply.sh xinitrc xrdp
    ```
-2. Install the reconnect hook (releases stuck modifier keys after RDP KeyboardSync — see notes):
-   ```bash
-   sudo cp scripts/reconnectwm.sh /etc/xrdp/reconnectwm.sh
-   sudo chmod 755 /etc/xrdp/reconnectwm.sh
-   sudo chown root:root /etc/xrdp/reconnectwm.sh
-   ```
-3. Enable and start xrdp:
+   What this does (driven by `identity.xrdp.*` and `identity.locale.rdp_lcid`):
+   - Renders `os/xinitrc/xinitrc.tmpl` → `~/.xinitrc` (mode 755) and symlinks `~/.xsession → ~/.xinitrc`. The X session execs i3 from here.
+   - If `identity.xrdp.install_reconnectwm: true`, installs `os/xrdp/reconnectwm.sh` to `/etc/xrdp/reconnectwm.sh` (root-owned, 755). Releases stuck modifier keys after RDP KeyboardSync — see Known Issues B.
+   - Sets `Policy=<identity.xrdp.sesman_policy>` in `/etc/xrdp/sesman.ini` (default `UBD`: match by user+bpp+depth, so the same user reconnecting from any client always reattaches).
+   - If `identity.locale.rdp_lcid` is not `0x00000409` (US English) and `/etc/xrdp/km-<lcid>.ini` is missing, mirrors `/etc/xrdp/km-00000409.ini` to the right filename. Fixes `/`, `?`, `'`, `"` being mis-translated on English-Canada (`0x00001009`), English-UK (`0x00000809`), English-Australia (`0x00000c09`), etc. No xrdp restart needed; the next RDP connection picks it up.
+
+2. Enable and start xrdp:
    ```bash
    sudo systemctl enable --now xrdp
+   sudo systemctl restart xrdp-sesman   # only safe before any user has logged in — picks up the Policy change
    ```
-3b. Set sesman session policy so reconnects always reattach to the same session (regardless of client IP, resolution, or xrdp service restarts):
-   ```bash
-   sudo sed -i 's/^Policy=.*/Policy=UBD/' /etc/xrdp/sesman.ini
-   sudo systemctl restart xrdp-sesman   # only safe before any user has logged in
-   ```
-   Alternatively, deploy the archived `configs/xrdp-sesman.ini` verbatim. `Policy=UBD` matches sessions by user+bpp+depth only — same user reconnecting from any client always reattaches.
-4. Open the RDP port if a firewall is enabled:
+
+3. Open the RDP port if a firewall is enabled:
    ```bash
    sudo ufw allow 3389/tcp || true
    ```
-5. (Optional, security) Fix `/etc/xrdp/key.pem` permissions so xrdp can use TLS:
+
+4. (Optional, security) Fix `/etc/xrdp/key.pem` permissions so xrdp can use TLS:
    ```bash
    sudo chmod 644 /etc/xrdp/key.pem
    ```
-6. **If your RDP client uses a non-US English locale** (e.g. English-Canada `0x00001009`, English-UK `0x00000809`, English-Australia `0x00000c09`), xrdp won't have a matching keymap file and will fall back to US English imperfectly — some punctuation keys including `/` will be mis-translated. Drop in a copy of the US keymap under the matching locale name:
-   ```bash
-   # English-Canada (most common for North American users with Windows set to Canadian keyboard)
-   sudo cp /etc/xrdp/km-00000409.ini /etc/xrdp/km-00001009.ini
-   # English-UK
-   sudo cp /etc/xrdp/km-00000409.ini /etc/xrdp/km-00000809.ini
-   ```
-   No xrdp restart needed; the next RDP connection picks up the new file. Diagnose via `sudo tail /var/log/xrdp.log` after a connect — look for `Cannot find keymap file /etc/xrdp/km-<LCID>.ini`.
+
+Diagnose locale/keymap issues via `sudo tail /var/log/xrdp.log` after a connect — look for `Cannot find keymap file /etc/xrdp/km-<LCID>.ini`.
 
 ## Phase 7 — Deploy i3 + app configs
 
+Render and install the i3, alacritty, rofi, and typora-themes components in one go:
+
 ```bash
-# i3
-mkdir -p ~/.config/i3
-cp configs/i3-config        ~/.config/i3/config
-cp configs/i3status.conf    ~/.config/i3/i3status.conf
-
-# alacritty
-mkdir -p ~/.config/alacritty
-cp configs/alacritty.toml   ~/.config/alacritty/alacritty.toml
-
-# rofi
-mkdir -p ~/.config/rofi
-cp configs/rofi-tokyo-night.rasi ~/.config/rofi/tokyo-night.rasi
+~/uap/setup/apply.sh i3 alacritty rofi typora-themes
 ```
+
+What this does (templates are rendered using `identity.theme.*` and `identity.wm.*` — colors, mod key, font, workspace count):
+
+- `os/i3/i3-config.tmpl` → `~/.config/i3/config` + `os/i3/i3status.conf.tmpl` → `~/.config/i3/i3status.conf`. `apply.sh` also sends `i3-msg reload` so the change applies to the running session.
+- `os/alacritty/alacritty.toml.tmpl` → `~/.config/alacritty/alacritty.toml`.
+- `os/rofi/tokyo-night.rasi.tmpl` → `~/.config/rofi/tokyo-night.rasi`.
+- `os/typora-themes/*` (no `.tmpl` — copied verbatim) → `~/.config/Typora/themes/`.
 
 Wallpaper: drop any 16:9 image at `~/.config/i3/background` (referenced by `feh --bg-fill` in `xinitrc`). If you don't, the line silently no-ops.
 
 ### Typora themes
 
-Two installable themes are archived in `configs/typora-themes/`:
+Two installable themes ship in `os/typora-themes/`:
 
 - **monospace** + **monospace-dark** — official Typora typewriter theme (uses Inconsolata for body text, PT Mono for code). The dark variant is the day-to-day default.
 - **tokyo-night** + **tokyo-night+** — community Tokyo Night theme matching the rest of the desktop's color scheme (the `+` variant has richer syntax colors).
 
-Install all of them at once:
-
-```bash
-mkdir -p ~/.config/Typora/themes
-cp -r configs/typora-themes/* ~/.config/Typora/themes/
-```
-
-The monospace theme also needs **PT Mono** (PT Mono is not in apt — the apt-installed `fonts-inconsolata` covers Inconsolata):
+The monospace theme also needs **PT Mono**, which `apply.sh` does NOT install (PT Mono is not in apt — the apt-installed `fonts-inconsolata` covers Inconsolata):
 
 ```bash
 mkdir -p ~/.local/share/fonts/PTMono
@@ -306,12 +284,10 @@ Sources: [typora/typora-monospace-theme](https://github.com/typora/typora-monosp
 The i3 config already references `~/.local/bin/i3-workspace-title`; this is what makes the focused window's title appear on the workspace button in the top bar.
 
 ```bash
-mkdir -p ~/.local/bin
-cp scripts/i3-workspace-title ~/.local/bin/i3-workspace-title
-chmod +x ~/.local/bin/i3-workspace-title
+~/uap/setup/apply.sh workspace-title-daemon
 ```
 
-It auto-starts via `exec_always --no-startup-id flock -n /tmp/i3-workspace-title.lock ~/.local/bin/i3-workspace-title` in the i3 config — `flock -n` makes it a singleton across i3 reloads.
+Installs `os/workspace-title-daemon/i3-workspace-title` (verbatim, mode 755) to `~/.local/bin/`. It auto-starts via `exec_always --no-startup-id flock -n /tmp/i3-workspace-title.lock ~/.local/bin/i3-workspace-title` in the rendered i3 config — `flock -n` makes it a singleton across i3 reloads.
 
 ## Phase 8.55 — Workspace hub (UAP standard)
 
@@ -339,22 +315,24 @@ Sub-repos that are conceptually code (like `dashboard`) get symlinked under `~/d
 
 **Setup steps:**
 
+The workspace hub is built from `identity.ai.workspace_hub_name` and `identity.ai.subworkspaces[]`:
+
 ```bash
-mkdir -p ~/workspace
-ln -sfn ~/ops       ~/workspace/ops
-ln -sfn ~/dev       ~/workspace/dev
-ln -sfn ~/uap       ~/workspace/uap
-# (add any other top-level workspaces here)
-
-# Code repos that live elsewhere in $HOME get symlinked under ~/dev/, not at the hub root:
-ln -sfn ~/dashboard ~/dev/dashboard
-
-cp configs/workspace/CLAUDE.md ~/workspace/CLAUDE.md
+~/uap/setup/apply.sh workspace-hub
 ```
 
-The archived `configs/workspace/CLAUDE.md` is a starter template — edit it on each deployment to describe that machine's actual subworkspaces and routing rules. The "Out-of-scope" section listing sensitive paths should be kept verbatim.
+This:
+- Creates `~/<workspace_hub_name>/` (default `workspace`).
+- For each entry in `identity.ai.subworkspaces[]`, symlinks `~/<name>` → `<hub>/<name>` (skipping any source dir that doesn't exist yet, with a warning).
+- Renders `ai/workspace-hub/CLAUDE.md.tmpl` (the router / Layer 0) into the hub root. The template fills in `identity.os.name`, `identity.os.tagline`, and the subworkspaces list.
 
-When a new top-level workspace is added later (e.g., a new project folder under `~/`), add it to `~/workspace/` as a symlink and to the router's layout table.
+For code repos living elsewhere in `$HOME` that should appear under `~/dev/` (not at the hub root), add the symlink manually after `apply.sh`:
+
+```bash
+ln -sfn ~/dashboard ~/dev/dashboard
+```
+
+When a new top-level workspace appears later, add it to `identity.ai.subworkspaces[]` and re-run `apply.sh workspace-hub`. The "Out-of-scope" section in the rendered `CLAUDE.md` listing sensitive paths is intentionally template-baked — keep it as is.
 
 ## Phase 8.6 — Claude Code autostart
 
@@ -390,15 +368,9 @@ If you don't want the autostart on a specific login, kill it after start (`pkill
    ```
 2. **Rofi launcher (`Mod1+d` → "Claude (workspace)")** — a `.desktop` file under `~/.local/share/applications/` + the official Claude icon:
    ```bash
-   mkdir -p ~/.local/share/applications ~/.local/share/icons/claude
-   cp configs/desktop-entries/claude-workspace.desktop ~/.local/share/applications/
-   cp configs/icons/claude.png ~/.local/share/icons/claude/claude.png
-   update-desktop-database ~/.local/share/applications
+   ~/uap/setup/apply.sh desktop-entries
    ```
-   The rofi theme `configs/rofi-tokyo-night.rasi` enables `sort: true` so entries are sorted by usage frequency. To make Claude show up first immediately after deploy (before any usage history accumulates), pre-seed the cache:
-   ```bash
-   echo "20 claude-workspace.desktop" > ~/.cache/rofi3.druncache
-   ```
+   This renders `ai/desktop-entries/claude-workspace.desktop.tmpl` (using `identity.operator.username`, `identity.ai.workspace_hub_name`, and `identity.ai.permission_mode`) into `~/.local/share/applications/`, copies `ai/desktop-entries/claude.png` to `~/.local/share/icons/claude/`, and runs `update-desktop-database`. It also pre-seeds the rofi drun cache (`~/.cache/rofi3.druncache`) so Claude appears first in the launcher immediately, before usage history accumulates. The rofi theme at `os/rofi/tokyo-night.rasi.tmpl` enables `sort: true` so frequency-based ordering takes over after that.
 
 Both share the same command, so behavior is identical: alacritty in `~/workspace/`, Claude with `bypassPermissions` and remote-control on.
 
@@ -408,16 +380,10 @@ i3 doesn't bring a desktop environment, so GTK and Qt apps default to light them
 
 ```bash
 sudo apt install -y gnome-themes-extra qt5-style-plugins
-
-# GTK 3 / 4 settings (file-based — works without gsettings)
-mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
-cp configs/gtk-3.0/settings.ini ~/.config/gtk-3.0/settings.ini
-cp configs/gtk-4.0/settings.ini ~/.config/gtk-4.0/settings.ini
-
-# gsettings (modern path, used by GNOME-aware apps)
-gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+~/uap/setup/apply.sh gtk-theme
 ```
+
+`apply.sh gtk-theme` renders and installs `~/.config/gtk-{3.0,4.0}/settings.ini` from `os/gtk-theme/` templates (driven by `identity.theme.gtk_theme`), then runs `gsettings set ... color-scheme 'prefer-dark'` and `gsettings set ... gtk-theme <identity.theme.gtk_theme>` for GNOME-aware apps.
 
 The `xinitrc` deployed in Phase 6 already sets these env vars so they propagate to all apps started from i3:
 
@@ -434,16 +400,13 @@ Apps already running before this change (most importantly Typora and Edge) need 
 Replace the default Ubuntu splash with the UAP logo on a Tokyo Night background. Only visible on the hypervisor console / bare-metal display during boot (you won't see it via RDP since RDP only connects after boot finishes), but it brands the OS for anyone who does see the console.
 
 ```bash
-sudo mkdir -p /usr/share/plymouth/themes/uap
-sudo cp configs/plymouth/uap.plymouth configs/plymouth/uap.script configs/plymouth/logo.png /usr/share/plymouth/themes/uap/
 sudo apt install -y plymouth-label   # silences a label-pango warning during initramfs build
-sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
-  /usr/share/plymouth/themes/uap/uap.plymouth 100
-sudo update-alternatives --set default.plymouth /usr/share/plymouth/themes/uap/uap.plymouth
-sudo update-initramfs -u
+~/uap/setup/apply.sh plymouth
 ```
 
-The logo is a static PNG; to rebrand, drop in a new `logo.png` (transparent background recommended, ~800×300) and re-run `sudo update-initramfs -u`.
+`apply.sh plymouth` renders `os/plymouth/uap.plymouth.tmpl` and `os/plymouth/uap.script.tmpl` (renamed to match `identity.os.name_lower` — e.g. `myos.plymouth` if you re-themed), installs them along with `logo.png` into `/usr/share/plymouth/themes/<name_lower>/`, runs `update-alternatives` to point `default.plymouth` at the new theme, then `update-initramfs -u` to bake it in.
+
+To use a custom logo: drop a `logo.png` (transparent background recommended, ~800×300) into `~/uap.local/`, set `assets.logo: logo.png` in your `identity.yaml`, and re-run `apply.sh plymouth`.
 
 ## Phase 9 — First connect
 
@@ -465,7 +428,7 @@ If the bar is empty or the title doesn't update on focus change, check `~/.local
 
 ## Known issues & gotchas
 
-These are all real things that have hit this setup. The fixes are baked into the configs/scripts, but you'll re-encounter them if you deviate.
+These are all real things that have hit this setup. The fixes are baked into the rendered configs and `apply.sh`'s install hooks, but you'll re-encounter them if you deviate.
 
 ### A. Alt+Enter "could not be successfully run"
 
@@ -475,7 +438,7 @@ i3-nagbar fires when an `exec` command's child exits non-zero quickly. An earlie
 
 Microsoft RDP sends KeyboardSync PDUs on reconnect. On this xrdp+i3 stack, that sometimes leaves `ISO_Level5_Shift` (mapped to Mod3) stuck in pressed state. With Mod3 held, `Alt+1` becomes `Alt+ISO_Level5_Shift+1` and i3 won't fire its binding. Symptoms: workspace switch shortcuts silently die after a reconnect; a fresh login works fine.
 
-Fix: `/etc/xrdp/reconnectwm.sh` (deployed in Phase 6 step 2) calls `xdotool keyup` for all common modifiers on every reconnect. Diagnose with `xinput test-xi2 --root` and look for `modifiers: base 0x20`; or compare `xdotool key alt+1` (broken) against `xdotool key --clearmodifiers alt+1` (works) to confirm the stuck-modifier theory.
+Fix: `/etc/xrdp/reconnectwm.sh` (deployed by `apply.sh xrdp` in Phase 6 when `identity.xrdp.install_reconnectwm: true`) calls `xdotool keyup` for all common modifiers on every reconnect. Diagnose with `xinput test-xi2 --root` and look for `modifiers: base 0x20`; or compare `xdotool key alt+1` (broken) against `xdotool key --clearmodifiers alt+1` (works) to confirm the stuck-modifier theory.
 
 ### C. Black screen on RDP reconnect (chansrv socket held by stale xrdp)
 
@@ -489,7 +452,7 @@ Cosmetic. The `.km` file works; removing it breaks key translation. Leave it alo
 
 ### E. Non-US English RDP clients can't type `/` and a few other punctuation keys
 
-xrdp ships only a handful of keymap files (`/etc/xrdp/km-*.ini`). If the Windows RDP client reports a locale not in that set (e.g. English-Canada `0x00001009`), xrdp falls back to US English imperfectly and a few keys including `/` get mis-translated. Fix: copy `km-00000409.ini` to `km-<your-locale>.ini`. See Phase 6 step 6.
+xrdp ships only a handful of keymap files (`/etc/xrdp/km-*.ini`). If the Windows RDP client reports a locale not in that set (e.g. English-Canada `0x00001009`), xrdp falls back to US English imperfectly and a few keys including `/` get mis-translated. Fix: copy `km-00000409.ini` to `km-<your-locale>.ini`. `apply.sh xrdp` does this automatically when `identity.locale.rdp_lcid` is set to a non-US locale. See Phase 6.
 
 ### F. Punctuation keys (`/`, `?`, `'`, `"`, etc.) arrive as wrong characters on Microsoft Remote Desktop clients
 
@@ -510,7 +473,7 @@ Symptom: after `sudo systemctl restart xrdp.service` (e.g. for a config change),
 
 Root cause: the default `Policy=Default` in `sesman.ini` matches sessions by `(user, bpp, depth, ip-addr, connection-state)`. xrdp service restart invalidates the connection-state tracking, so sesman doesn't see a match and creates a new session.
 
-Fix: set `Policy=UBD` in `/etc/xrdp/sesman.ini` and restart sesman. Reconnects then reattach by user+bpp+depth only. See Phase 6 step 3b. The archived `configs/xrdp-sesman.ini` already has this set.
+Fix: set `Policy=UBD` in `/etc/xrdp/sesman.ini` and restart sesman. Reconnects then reattach by user+bpp+depth only. `apply.sh xrdp` writes this in-place from `identity.xrdp.sesman_policy` (default `UBD`). See Phase 6.
 
 Recovery when it happens: any Claude Code sessions in the stranded `:10` are still reachable via the Claude mobile app (because of `remoteControlAtStartup`); other windows are lost unless you can SSH in and find another way to access them.
 
@@ -541,5 +504,5 @@ After deploy, confirm in this order:
 3. `Mod1+Return` opens alacritty
 4. Top bar shows workspace numbers; active one shows `N: <window title>`
 5. `pgrep -f i3-workspace-title` returns one PID
-6. `cat /etc/xrdp/reconnectwm.sh` matches `scripts/reconnectwm.sh`
+6. `cat /etc/xrdp/reconnectwm.sh` matches `os/xrdp/reconnectwm.sh`
 7. `sudo update-alternatives --display default.plymouth` shows the UAP theme as the active link

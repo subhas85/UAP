@@ -23,7 +23,7 @@ Options:
 - (a) Official Claude logomark (orange asterisk) — UAP default, fits the "AI-first OS" angle.
 - (b) Upload a PNG — user provides path/file (square, transparent background recommended, 800×800 ideal).
 - (c) Generate a text logo — facilitator renders the OS name in JetBrainsMono Nerd Font on the chosen background.
-Customizes: `configs/plymouth/logo.png`, `configs/icons/<name>.png`, Claude `.desktop` entry icon.
+Customizes: `os/plymouth/logo.png`, `ai/desktop-entries/claude.png`, Claude `.desktop` entry icon.
 
 ### Q1.4 Color palette
 Default: **Tokyo Night** (`#1a1b26` bg, `#7aa2f7` accent — already configured for i3, alacritty, rofi, Typora, GTK).
@@ -103,7 +103,7 @@ Optional: Chromium (snap), Firefox (snap), Brave.
 Customizes: Phase 4 install steps + sources.
 
 ### Q5.2 Markdown editor
-Default: **Typora** (Tokyo Night theme + monospace-dark, both archived in `../configs/typora-themes/`).
+Default: **Typora** (Tokyo Night theme + monospace-dark, both archived in `../os/typora-themes/`).
 Alternatives: Obsidian, MarkText, VS Code with markdown extensions, none.
 Customizes: Phase 4 install, theme deployment.
 
@@ -289,5 +289,5 @@ The facilitator agent should:
 
 1. Save `answers.yaml` in this folder.
 2. Apply customizations by walking `../README.md` phase by phase, substituting answers.
-3. Mirror any newly-generated artifacts (custom logo, alternative themes, custom keybindings) back into `../configs/` so the runbook reflects this deployment's choices, not just the framework defaults. This satisfies the standing rule that every system tweak is documented in `~/uap/`.
+3. Mirror any newly-generated artifacts (custom logo, alternative themes, custom keybindings) back into the appropriate scope folder (`../os/`, `../ai/`, `../workflows/`) so the runbook reflects this deployment's choices, not just the framework defaults. This satisfies the standing rule that every system tweak is documented in `~/uap/`.
 4. Commit the changes if the user has initialized `~/uap/` as a git repo.
