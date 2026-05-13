@@ -30,6 +30,21 @@ UAP applies ICM at two scopes: the home-directory **hub** (`~/workspace/CLAUDE.m
 
 ---
 
+## Convention — where docs belong (workspace doc vs repo doc)
+
+A practical rule that flows from ICM's "every folder serves a purpose" principle. Useful when the operator has both a workspace hub (`~/workspace/`, with subworkspaces for ops/dev/etc.) AND individual code repos:
+
+**Rule:** *if the doc still makes sense without the code checked out, it goes in the workspace (`ops/projects/`, `shared/runbooks/`, etc.). If understanding it requires the codebase nearby — file paths, configs, code examples — it goes in the repo (`<repo>/README.md`, `<repo>/docs/`).*
+
+| Doc type | Where | Why |
+|---|---|---|
+| Architecture, API, build, code internals | **In the repo** (`README.md`, `docs/`) | Useless without the code |
+| `CHANGELOG.md` of code changes | **In the repo** | Tied to commits |
+| Cross-project business framing, owner, blockers, status | **In `<workspace>/projects/`** | About the project as a unit, not about its code |
+| Runbooks | **Repo** if specific to one codebase (`docs/operations/`); **`<workspace>/shared/runbooks/`** if cross-cutting | Depends on coupling |
+
+A workspace `<workspace>/projects/<name>.md` should typically be a *short* one-pager linking to the deeper architecture doc in the repo, not a duplicate. One canonical source per fact.
+
 ## OS / system
 
 - [Ubuntu Server 24.04 LTS install guide](https://ubuntu.com/server/docs/installation)
