@@ -1,18 +1,23 @@
-# UAP
+# UAP — an AI-collaborator workstation framework
 
-> **UAP — out of this world.**
->
-> A quiet, dark command center you log into from anywhere on your network. It's not a regular desktop. Instead of icons and pop-ups, you get a clean keyboard-driven workspace tuned for focus: terminal, browser, notes, file manager — and not much else. The whole thing is dark with a typewriter feel, so it stays out of the way while you work. You don't sit at this machine directly; you dial into it from your laptop or phone, do what you need to do, and step away.
->
-> Under the hood it's Ubuntu — the same operating system that runs much of the production internet — so it can do everything a developer needs out of the box: code, containers, databases, automation, AI tooling. Microsoft Edge handles day-to-day work, Chrome handles AI browser automation, and the terminal stack is dialed in for real system work.
->
-> What makes UAP different from a plain Ubuntu install is how it's set up to work *with AI*. The terminal is wired for Claude Code and other command-line coding agents, and projects follow a methodology where **the folder structure is the workflow itself**. Numbered stage folders (`01_intake/`, `02_clean/`, …) define the sequence; small markdown files at each level (`CLAUDE.md`, `CONTEXT.md`) tell the agent its current role — what to load, what to do, and where to write the result. One agent walks the filesystem and reads the right files at the right moment, instead of an orchestration framework juggling a fleet of specialized agents. Humans review the handoffs between stages. The OS treats AI as a real collaborator, not an afterthought.
->
-> UAP is built to run as a virtual machine. One folder of configs and a runbook stand up an identical workstation for you, a teammate, or any new VM in minutes — a personal OS that's actually portable.
+> *out of this world*
 
-UAP is open source (MIT-licensed) and lives at `github.com/subhas85/uap`. Any operator can fork it, clone it, and stand up their own UAP machine; the framework is parameterized so your machine ends up with your name, your color palette, your project conventions, not the original author's. The pristine framework stays in the repo; everything that makes a specific deployment *yours* lives outside it at `~/uap.local/`. See `setup/DESIGN.md` for the template + identity + apply architecture.
+UAP turns a fresh Ubuntu Server install into a quiet, dark, keyboard-driven workstation you log into remotely — and that has an AI agent in the session with you from the first keystroke. Open source, MIT-licensed, parameterized so any operator can fork it and stand up an identical machine in minutes.
 
-This README is the runbook to recreate UAP from scratch on any hypervisor (Proxmox, ESXi, Hyper-V, libvirt) or on bare-metal hardware. Designed so an AI agent or operator can follow it linearly. Contributions, issues, and forks are welcome — see `CONTRIBUTING.md`.
+**What you actually get:**
+
+- Ubuntu Server 24.04 LTS + i3 + xrdp (you RDP in from your laptop or phone, you don't sit at the box)
+- Tokyo Night theme across the whole stack (i3 bar, alacritty, rofi, Typora, GTK apps, the boot splash)
+- Claude Code installed and auto-starting in a `~/workspace/` hub, with four built-in permission tiers (`personal-lab`, `engineer`, `staff`, `production-admin`)
+- The toolchain a dev needs out of the box: Edge, Chrome, btop, bat, glow, Typora, git, build essentials
+
+**What's different about it:**
+
+- **AI-collaborator first.** Terminal autostart, workspace hub, permission-tier `~/.claude/settings.json`s are designed around having a Claude session in the room with you — not bolted on after the fact.
+- **ICM workflows.** Projects use a folder-as-workflow convention: numbered stages (`01_intake/`, `02_clean/`, …) with `CLAUDE.md` at each level telling the agent its current role. One agent walks the tree; no orchestration framework juggling specialists.
+- **Identity-driven & reproducible.** Everything that makes a machine *yours* (hostname, theme, `components_enabled`, operator email) lives in `~/uap.local/identity.yaml`, not in this repo. Fork → set identity → `apply.sh`. Same identity on another machine = the same workstation.
+
+Working today. PRs and issues welcome. See [`setup/DESIGN.md`](setup/DESIGN.md) for architecture, [`CONTRIBUTING.md`](CONTRIBUTING.md) to contribute.
 
 ## Quick Start
 
