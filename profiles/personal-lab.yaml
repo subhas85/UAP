@@ -1,4 +1,8 @@
-# Personal homelab profile — defaults for a single-operator UAP deployment.
+# personal-lab profile — your own isolated experiments.
+# Permission mode: bypassPermissions. All AI features on (autostart, remote
+# control, concierge). Use this on a VM or homelab box where the blast radius
+# is yourself only.
+#
 # Copy to ~/uap.local/identity.yaml and fill in operator-specific fields before applying.
 schema_version: 1
 
@@ -6,7 +10,7 @@ os:
   name: UAP
   name_lower: uap
   tagline: out of this world
-  hostname: my-uap-box       # <-- override per machine
+  hostname: my-lab-box       # <-- override per machine
 
 operator:
   username: operator         # <-- override (the Linux user UAP is installed for)
@@ -55,6 +59,7 @@ wm:
   workspace_title_daemon: true
   per_window_titles: false
 
+# Permission tier: bypass allowed. Trust the AI fully on an isolated machine.
 ai:
   autostart_claude: true
   permission_mode: bypassPermissions

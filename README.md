@@ -87,8 +87,10 @@ setup/                          # deployment engine
   DESIGN.md                     # design notes for the deployment system
   references.md                 # links to ICM paper, upstream docs, known issues
 profiles/                       # pre-canned identity.yaml files (skip the wizard if one fits)
-  personal.yaml                 # single-operator homelab
-  production.yaml               # shared / production-ish deployment
+  personal-lab.yaml             # bypass allowed; isolated experiments
+  engineer.yaml                 # prompt before tool use; daily work with some sensitive context
+  staff.yaml                    # prompts on, no concierge / remote-control; non-technical users
+  production-admin.yaml         # prompts on, no autostart; M365 / GitHub / servers / client data
 os/                             # system chrome — what Ubuntu looks like
   i3/, alacritty/, rofi/, xinitrc/, typora-themes/
   gtk-theme/, plymouth/, xrdp/, workspace-title-daemon/

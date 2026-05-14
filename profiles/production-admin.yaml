@@ -1,0 +1,102 @@
+# production-admin profile — M365, GitHub, servers, client data.
+# Permission mode: default (prompt before tool use) AND no autostart at all.
+# The operator must consciously launch each Claude Code session — the right
+# friction when state changes hit shared/production systems. Remote-control
+# is off (no mobile-app surface), concierge is off (no background actions).
+#
+# Note: Claude Code has no native "strict approvals" mode beyond `default`.
+# True strictness for this tier should be layered on top via a curated
+# allowlist in ~/.claude/settings.json (future work — apply.sh doesn't
+# deploy that yet). Treat this profile as "default + manual launch" today.
+#
+# Copy to ~/uap.local/identity.yaml and fill in operator-specific fields before applying.
+schema_version: 1
+
+os:
+  name: UAP
+  name_lower: uap
+  tagline: out of this world
+  hostname: uap-prod         # <-- override per machine
+
+operator:
+  username: operator         # <-- override (the Linux user UAP is installed for)
+  email: operator@example.com
+  role: production-admin
+
+theme:
+  palette: tokyo-night
+  bg_hex:       "#1a1b26"
+  bg_alt_hex:   "#24283b"
+  bg_r:         "0.102"
+  bg_g:         "0.106"
+  bg_b:         "0.149"
+  fg_hex:       "#a9b1d6"
+  fg_dim_hex:   "#787c99"
+  accent_hex:   "#7aa2f7"
+  urgent_hex:   "#f7768e"
+  green_hex:    "#9ece6a"
+  yellow_hex:   "#e0af68"
+  purple_hex:   "#bb9af7"
+  cyan_hex:     "#0db9d7"
+  border_hex:   "#32344a"
+  inactive_hex: "#444b6a"
+  font: "JetBrainsMono Nerd Font"
+  font_size: 11
+  gtk_theme: Adwaita-dark
+
+network:
+  remote_path: tailscale
+  rdp_scope: tailscale-only
+
+xrdp:
+  sesman_policy: UBD
+  install_reconnectwm: true
+
+apps:
+  browsers: [edge, chrome]
+  markdown_editor: typora
+  terminal_tools: [btop, bat, glow]
+  file_manager: thunar
+  screenshot: flameshot
+
+wm:
+  mod_key: Mod1
+  workspace_count: 10
+  workspace_title_daemon: true
+  per_window_titles: false
+
+# Permission tier: strict. Manual launch only; nothing AI-related runs unattended.
+ai:
+  autostart_claude: false
+  permission_mode: default
+  remote_control_at_startup: false
+  use_icm: true
+  workspace_hub_name: workspace
+  subworkspaces: [uap]
+  concierge: false
+  chat_bridge: none
+
+boot:
+  custom_plymouth: true
+  wallpaper: tokyo-night-default
+  system_dark_mode: true
+
+locale:
+  keyboard_layout: us
+  rdp_lcid: "0x00000409"
+
+assets:
+  logo: assets/logo.png
+
+components_enabled:
+  - plymouth
+  - rofi
+  - alacritty
+  - gtk-theme
+  - xinitrc
+  - desktop-entries
+  - xrdp
+  - workspace-title-daemon
+  - typora-themes
+  - i3
+  - workspace-hub

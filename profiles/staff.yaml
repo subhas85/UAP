@@ -1,5 +1,14 @@
-# Production / shared profile — conservative defaults for a non-interactive or
-# multi-operator deployment. Permission prompts are ON; no AI autostart bypass.
+# staff profile — non-technical users.
+# Permission mode: default (prompt before tool use). Launcher convenience is
+# preserved (autostart on, so Claude is one keystroke away), but the more
+# advanced AI affordances are pulled back: no concierge poking around in the
+# background, no remote-control surface exposed to the mobile app. The user
+# always sees the prompt before anything runs.
+#
+# Pair this with a curated allowlist in ~/.claude/settings.json (future
+# work — apply.sh doesn't deploy that yet) to restrict the tool surface
+# further if needed.
+#
 # Copy to ~/uap.local/identity.yaml and fill in operator-specific fields before applying.
 schema_version: 1
 
@@ -7,12 +16,12 @@ os:
   name: UAP
   name_lower: uap
   tagline: out of this world
-  hostname: uap-prod         # <-- override per machine
+  hostname: uap-staff        # <-- override per machine
 
 operator:
   username: operator         # <-- override (the Linux user UAP is installed for)
   email: operator@example.com
-  role: production
+  role: staff
 
 theme:
   palette: tokyo-night
@@ -56,9 +65,9 @@ wm:
   workspace_title_daemon: true
   per_window_titles: false
 
-# Conservative AI defaults: prompts on, no autostart bypass, no concierge.
+# Permission tier: prompt before tool use, no bypass surface.
 ai:
-  autostart_claude: false
+  autostart_claude: true
   permission_mode: default
   remote_control_at_startup: false
   use_icm: true

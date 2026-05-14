@@ -25,9 +25,11 @@ This is the locked design for how UAP separates the **pristine framework** (the 
 │     helpdesk/                 selected ones into ~/ops/pipelines/.     │
 │     incidents/                                                         │
 │     dev/                                                               │
-│   profiles/                 ← pre-canned identity.yaml files           │
-│     personal.yaml           (skip the wizard if a profile fits)        │
-│     production.yaml                                                    │
+│   profiles/                 ← pre-canned identity.yaml files,         │
+│     personal-lab.yaml         organized by permission tier             │
+│     engineer.yaml             (skip the wizard if a profile fits)      │
+│     staff.yaml                                                         │
+│     production-admin.yaml                                              │
 │   setup/                                                               │
 │     QUESTIONNAIRE.md                                                   │
 │     CLAUDE.md                                                          │
