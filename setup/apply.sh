@@ -186,6 +186,11 @@ install_workspace_hub() {
     local render="$RENDER_DIR/workspace-hub"
     local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
 
+    if [ "$DRY_RUN" = 1 ]; then
+        log "workspace-hub: DRY-RUN — would install CLAUDE.md + subworkspace symlinks at $hub"
+        return 0
+    fi
+
     install -d "$hub"
 
     # Symlink each declared subworkspace from ~/<name> into the hub
@@ -206,6 +211,11 @@ install_i3() {
     local render="$RENDER_DIR/i3"
     local target="$HOME_DIR/.config/i3"
 
+    if [ "$DRY_RUN" = 1 ]; then
+        log "i3: DRY-RUN — would install $target/config + $target/i3status.conf (no i3-msg reload)"
+        return 0
+    fi
+
     install -d "$target"
     install -m 644 "$render/i3-config"      "$target/config"
     install -m 644 "$render/i3status.conf"  "$target/i3status.conf"
@@ -219,6 +229,11 @@ install_typora_themes() {
     local render="$RENDER_DIR/typora-themes"
     local target="$HOME_DIR/.config/Typora/themes"
 
+    if [ "$DRY_RUN" = 1 ]; then
+        log "typora-themes: DRY-RUN — would copy rendered themes to $target/"
+        return 0
+    fi
+
     install -d "$target"
     cp -r "$render"/* "$target/"
     log "typora-themes: copied themes to $target/"
@@ -227,6 +242,11 @@ install_typora_themes() {
 install_workspace_title_daemon() {
     local render="$RENDER_DIR/workspace-title-daemon"
 
+    if [ "$DRY_RUN" = 1 ]; then
+        log "workspace-title-daemon: DRY-RUN — would install $HOME_DIR/.local/bin/i3-workspace-title"
+        return 0
+    fi
+
     install -d "$HOME_DIR/.local/bin"
     install -m 755 "$render/i3-workspace-title" "$HOME_DIR/.local/bin/i3-workspace-title"
     log "workspace-title-daemon: installed ${HOME_DIR}/.local/bin/i3-workspace-title (i3 will exec_always launch it)"
@@ -234,6 +254,11 @@ install_workspace_title_daemon() {
 
 install_desktop_entries() {
     local render="$RENDER_DIR/desktop-entries"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "desktop-entries: DRY-RUN — would install claude-workspace.desktop + claude.png under $HOME_DIR/.local/share/{applications,icons/claude}/ and pre-seed rofi drun cache"
+        return 0
+    fi
 
     install -d "$HOME_DIR/.local/share/applications" "$HOME_DIR/.local/share/icons/claude"
 
@@ -256,6 +281,17 @@ install_desktop_entries() {
 
 install_xrdp() {
     local render="$RENDER_DIR/xrdp"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "xrdp: DRY-RUN — would patch /etc/xrdp/sesman.ini Policy to ${SESMAN_POLICY} (under sudo)"
+        [ "$INSTALL_RECONNECTWM" = "true" ] && log "xrdp: DRY-RUN — would install /etc/xrdp/reconnectwm.sh (under sudo)"
+        if [ -n "$RDP_LCID" ] && [ "$RDP_LCID" != "0x00000409" ]; then
+            local lcid_lower="${RDP_LCID#0x}"
+            lcid_lower="${lcid_lower,,}"
+            log "xrdp: DRY-RUN — would mirror /etc/xrdp/km-00000409.ini to km-${lcid_lower}.ini (under sudo)"
+        fi
+        return 0
+    fi
 
     # 1. Patch /etc/xrdp/sesman.ini's Policy line to our chosen value (idempotent)
     if [ -f /etc/xrdp/sesman.ini ]; then
@@ -292,6 +328,12 @@ install_xrdp() {
 
 install_xinitrc() {
     local render="$RENDER_DIR/xinitrc"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "xinitrc: DRY-RUN — would install $HOME_DIR/.xinitrc + symlink .xsession"
+        return 0
+    fi
+
     install -m 755 "$render/xinitrc" "$HOME_DIR/.xinitrc"
     ln -sf "$HOME_DIR/.xinitrc" "$HOME_DIR/.xsession"
     log "xinitrc: installed to $HOME_DIR/.xinitrc (+ .xsession symlink)"
@@ -344,6 +386,12 @@ install_claude_settings() {
 
 install_gtk_theme() {
     local render="$RENDER_DIR/gtk-theme"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "gtk-theme: DRY-RUN — would install $HOME_DIR/.config/gtk-{3.0,4.0}/settings.ini and set gsettings color-scheme=prefer-dark + gtk-theme=$GTK_THEME"
+        return 0
+    fi
+
     for v in 3.0 4.0; do
         install -d "$HOME_DIR/.config/gtk-$v"
         install -m 644 "$render/gtk-$v/settings.ini" "$HOME_DIR/.config/gtk-$v/settings.ini"
@@ -358,6 +406,11 @@ install_alacritty() {
     local render="$RENDER_DIR/alacritty"
     local target="$HOME_DIR/.config/alacritty"
 
+    if [ "$DRY_RUN" = 1 ]; then
+        log "alacritty: DRY-RUN — would install $target/alacritty.toml"
+        return 0
+    fi
+
     install -d "$target"
     install -m 644 "$render/alacritty.toml" "$target/alacritty.toml"
     log "alacritty: installed config to $target/alacritty.toml"
@@ -366,6 +419,11 @@ install_alacritty() {
 install_rofi() {
     local render="$RENDER_DIR/rofi"
     local target="$HOME_DIR/.config/rofi"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "rofi: DRY-RUN — would install $target/tokyo-night.rasi"
+        return 0
+    fi
 
     install -d "$target"
     install -m 644 "$render/tokyo-night.rasi" "$target/tokyo-night.rasi"
