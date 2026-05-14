@@ -82,8 +82,8 @@ These are absolute floors: pipe-to-shell from the internet, dd to a block device
 
 ```json
 {
+  "defaultMode": "bypassPermissions",
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [],
     "ask": [],
     "deny": [ /* shared deny block */ ]
@@ -97,8 +97,8 @@ These are absolute floors: pipe-to-shell from the internet, dd to a block device
 
 ```json
 {
+  "defaultMode": "default",
   "permissions": {
-    "defaultMode": "default",
     "allow": [
       "Read(**)",
       "Edit(**)",
@@ -157,8 +157,8 @@ Logic: `Bash(*)` and broad `Read/Edit/Write(**)` mean routine work flows without
 
 ```json
 {
+  "defaultMode": "default",
   "permissions": {
-    "defaultMode": "default",
     "allow": [
       "Read(**)",
       "Bash(ls *)", "Bash(cat *)", "Bash(head *)", "Bash(tail *)",
@@ -178,8 +178,8 @@ Logic: `Bash(*)` and broad `Read/Edit/Write(**)` mean routine work flows without
 
 ```json
 {
+  "defaultMode": "default",
   "permissions": {
-    "defaultMode": "default",
     "allow": [
       "Read(**)",
       "Bash(ls *)", "Bash(cat *)", "Bash(head *)", "Bash(tail *)",
