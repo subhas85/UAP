@@ -297,6 +297,44 @@ install_xinitrc() {
     log "xinitrc: installed to $HOME_DIR/.xinitrc (+ .xsession symlink)"
 }
 
+install_claude_settings() {
+    local render="$RENDER_DIR/claude-settings"
+
+    # Map the role label to its template filename. Three of four match directly;
+    # the personal-lab tier carries role: personal in identity.yaml for
+    # historical reasons (consumed by other tools too).
+    local role="$OPERATOR_ROLE"
+    [ "$role" = "personal" ] && role="personal-lab"
+
+    local src="$render/${role}.settings.json"
+    [ -f "$src" ] || die "claude-settings: no rendered file at $src (role: $role)"
+
+    # ---- Global file: ~/.claude/settings.json ----
+    local global="$HOME_DIR/.claude/settings.json"
+    install -d "$HOME_DIR/.claude"
+
+    if [ -f "$global" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then
+        install -m 644 "$src" "$global.uap-proposed"
+        warn "claude-settings: $global already exists; wrote proposed to $global.uap-proposed — diff and merge manually, or rerun with --force-claude-settings to overwrite."
+    else
+        install -m 644 "$src" "$global"
+        log "claude-settings: installed $global ($role tier)"
+    fi
+
+    # ---- Per-workspace overlay: ~/<hub>/.claude/settings.json ----
+    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
+    local overlay="$hub/.claude/settings.json"
+    install -d "$hub/.claude"
+
+    if [ -f "$overlay" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then
+        install -m 644 "$render/workspace-overlay.settings.json" "$overlay.uap-proposed"
+        warn "claude-settings: $overlay already exists; wrote proposed to $overlay.uap-proposed — diff and merge manually."
+    else
+        install -m 644 "$render/workspace-overlay.settings.json" "$overlay"
+        log "claude-settings: installed workspace overlay at $overlay"
+    fi
+}
+
 install_gtk_theme() {
     local render="$RENDER_DIR/gtk-theme"
     for v in 3.0 4.0; do
