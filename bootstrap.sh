@@ -15,17 +15,18 @@
 #   # If you already have the repo cloned to ~/uap:
 #   bash ~/uap/bootstrap.sh
 #
-#   # One-liner from a published repo (replace REPO_URL):
-#   curl -fsSL https://<your-host>/uap/bootstrap.sh | bash
+#   # One-liner from the public repo:
+#   bash <(curl -fsSL https://raw.githubusercontent.com/subhas85/uap/main/bootstrap.sh)
 #
 # Env vars:
 #   REPO_URL — git URL to clone if ~/uap isn't already present.
-#              Defaults to a placeholder; override or edit this script.
+#              Defaults to https://github.com/subhas85/uap.git (the public repo).
+#              Forks should override to their own URL.
 #   SKIP_WIZARD=1 — set up everything but don't auto-launch the wizard.
 #
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/CHANGE-ME/uap.git}"
+REPO_URL="${REPO_URL:-https://github.com/subhas85/uap.git}"
 UAP_DIR="$HOME/uap"
 LOG_PREFIX="\033[1;36m[uap-bootstrap]\033[0m"
 
@@ -91,10 +92,6 @@ if [ -d "$UAP_DIR/.git" ]; then
 elif [ -d "$UAP_DIR" ] && [ -f "$UAP_DIR/README.md" ]; then
   log "UAP folder at $UAP_DIR exists but isn't a git checkout — leaving it alone."
 else
-  if [ "$REPO_URL" = "https://github.com/CHANGE-ME/uap.git" ]; then
-    err "REPO_URL is the placeholder — edit this script or pass REPO_URL=<your-git-url>."
-    exit 1
-  fi
   log "Cloning UAP repo from $REPO_URL → $UAP_DIR"
   git clone "$REPO_URL" "$UAP_DIR"
 fi

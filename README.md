@@ -18,18 +18,20 @@ This README is the runbook to recreate UAP from scratch on any hypervisor (Proxm
 
 You have a fresh **Ubuntu Server 24.04 LTS** install (VM or bare metal) reachable over SSH or local console. UAP turns it into your AI-collaborator workstation.
 
-**One-liner** (when the repo is published somewhere reachable):
+**One-liner from the public repo:**
 
 ```bash
-curl -fsSL https://<your-host>/uap/bootstrap.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/subhas85/uap/main/bootstrap.sh)
 ```
 
-**Or, with a manual clone first** (any time you've grabbed the repo from another machine via git/scp/USB):
+**Or, clone first** (recommended — lets you inspect what you're about to run, and the repo ends up at `~/uap` where the rest of the framework expects it):
 
 ```bash
-git clone https://<your-host>/uap.git ~/uap     # or scp/rsync the folder to ~/uap
+git clone https://github.com/subhas85/uap.git ~/uap
 bash ~/uap/bootstrap.sh
 ```
+
+**Pointing an AI agent at it:** Once you've SSHed into the box, install Claude Code (`curl -fsSL https://claude.ai/install.sh | bash`), launch Claude from your home directory, and tell it: *"This is a fresh Ubuntu Server 24.04. Clone github.com/subhas85/uap into ~/uap, run bootstrap.sh, and help me through the wizard it launches."* The agent prepares the box and hands you off to the wizard, where it can continue helping you answer questions.
 
 What `bootstrap.sh` does:
 
@@ -60,8 +62,9 @@ Browsers (especially Chrome with AI browser-automation extensions) are the domin
 
 ## How AI-driven installs work
 
-- **Hypervisor installs are fully AI-installable end-to-end.** The agent talks to the hypervisor API, creates the VM, attaches the Ubuntu ISO with an autoinstall (cloud-init) config, boots it, waits, then SSHes in and runs the rest of this runbook. Zero human keystrokes.
-- **Bare-metal installs are AI-driven but human-assisted.** The agent builds an autoinstall USB image (or sets up PXE/netboot); a human plugs in the USB and powers the box on. The unattended install runs, the box phones home on first boot, and the agent takes over via SSH from there. (Enterprise gear with iDRAC/iLO/IPMI can skip the human step — the AI mounts the ISO over out-of-band, then proceeds as in the hypervisor flow.)
+UAP's automation starts once Ubuntu Server is running and reachable. **Provisioning the VM (or burning the ISO for bare-metal) is the operator's job today** — install Ubuntu Server 24.04 LTS via your hypervisor's normal flow or a USB stick, get network access, then point an AI agent at this repo. From that moment forward the agent drives everything: clones the repo, runs `bootstrap.sh`, walks you through the wizard, and applies the result.
+
+Future work — fully hands-off provisioning from a hypervisor API (e.g., Proxmox `pvesh` + cloud-init autoinstall) is on the roadmap but not in this release. If you want to contribute that piece, see `CONTRIBUTING.md`.
 
 ## What you get
 
