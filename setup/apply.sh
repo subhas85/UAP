@@ -5,8 +5,9 @@
 # Usage:
 #   apply.sh                  # apply every component in identity.components_enabled
 #   apply.sh plymouth i3      # apply only the named components
-#   apply.sh --dry-run        # render + show what would change; install nothing
-#   apply.sh --no-sudo        # skip steps that need root
+#   apply.sh --dry-run                  # render + show what would change; install nothing
+#   apply.sh --no-sudo                  # skip steps that need root
+#   apply.sh --force-claude-settings    # overwrite existing ~/.claude/settings.json (claude-settings component only)
 #
 # See ~/uap/setup/DESIGN.md for the contract.
 #
@@ -22,6 +23,7 @@ SCHEMA_VERSION=1
 
 DRY_RUN=0
 NO_SUDO=0
+FORCE_CLAUDE_SETTINGS=0
 COMPONENTS_REQUESTED=()
 
 # --- Helpers --------------------------------------------------------------
@@ -45,9 +47,10 @@ run_sudo() {
 # Parse args
 while [ $# -gt 0 ]; do
     case "$1" in
-        --dry-run)  DRY_RUN=1;  shift ;;
-        --no-sudo)  NO_SUDO=1;  shift ;;
-        -h|--help)  sed -n '3,12p' "$0"; exit 0 ;;
+        --dry-run)                DRY_RUN=1;                shift ;;
+        --no-sudo)                NO_SUDO=1;                shift ;;
+        --force-claude-settings)  FORCE_CLAUDE_SETTINGS=1;  shift ;;
+        -h|--help)                sed -n '3,12p' "$0";      exit 0 ;;
         --*)        die "unknown flag: $1" ;;
         *)          COMPONENTS_REQUESTED+=("$1"); shift ;;
     esac
