@@ -309,8 +309,17 @@ install_claude_settings() {
     local src="$render/${role}.settings.json"
     [ -f "$src" ] || die "claude-settings: no rendered file at $src (role: $role)"
 
-    # ---- Global file: ~/.claude/settings.json ----
     local global="$HOME_DIR/.claude/settings.json"
+    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
+    local overlay="$hub/.claude/settings.json"
+
+    if [ "$DRY_RUN" = 1 ]; then
+        log "claude-settings: DRY-RUN — would install $src to $global ($role tier)"
+        log "claude-settings: DRY-RUN — would install workspace overlay to $overlay"
+        return 0
+    fi
+
+    # ---- Global file: ~/.claude/settings.json ----
     install -d "$HOME_DIR/.claude"
 
     if [ -f "$global" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then
@@ -322,8 +331,6 @@ install_claude_settings() {
     fi
 
     # ---- Per-workspace overlay: ~/<hub>/.claude/settings.json ----
-    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
-    local overlay="$hub/.claude/settings.json"
     install -d "$hub/.claude"
 
     if [ -f "$overlay" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then

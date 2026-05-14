@@ -278,31 +278,43 @@ Not yet covered. The `mcp__<server>__<tool>` rule pattern works but no MCP serve
 ```bash
 install_claude_settings() {
     local render="$RENDER_DIR/claude-settings"
-    local role
-    role=$(yq '.operator.role' "$IDENTITY")
+
+    # Map the role label to its template filename. Three of four match directly;
+    # the personal-lab tier carries role: personal in identity.yaml for
+    # historical reasons (consumed by other tools too).
+    local role="$OPERATOR_ROLE"
     [ "$role" = "personal" ] && role="personal-lab"
 
-    local src_file="$render/${role}.settings.json"
-    [ -f "$src_file" ] || die "claude-settings: no rendered file for role '$role'"
+    local src="$render/${role}.settings.json"
+    [ -f "$src" ] || die "claude-settings: no rendered file at $src (role: $role)"
 
     local global="$HOME_DIR/.claude/settings.json"
+    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
+    local overlay="$hub/.claude/settings.json"
+
+    # DRY_RUN guard — describe what would happen and exit before touching the FS.
+    if [ "$DRY_RUN" = 1 ]; then
+        log "claude-settings: DRY-RUN — would install $src to $global ($role tier)"
+        log "claude-settings: DRY-RUN — would install workspace overlay to $overlay"
+        return 0
+    fi
+
+    # ---- Global file: ~/.claude/settings.json ----
     install -d "$HOME_DIR/.claude"
 
     if [ -f "$global" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then
-        local proposed="$global.uap-proposed"
-        install -m 644 "$src_file" "$proposed"
-        warn "claude-settings: $global already exists; wrote proposed to $proposed — diff and merge manually, or rerun with --force-claude-settings to overwrite."
+        install -m 644 "$src" "$global.uap-proposed"
+        warn "claude-settings: $global already exists; wrote proposed to $global.uap-proposed — diff and merge manually, or rerun with --force-claude-settings to overwrite."
     else
-        install -m 644 "$src_file" "$global"
+        install -m 644 "$src" "$global"
         log "claude-settings: installed $global ($role tier)"
     fi
 
-    local hub="$HOME_DIR/$WORKSPACE_HUB_NAME"
-    local overlay="$hub/.claude/settings.json"
-    install -d "$hub/.claude"
-
+    # ---- Per-workspace overlay: ~/<hub>/.claude/settings.json ----
     # Same overwrite-protection as the global file — operators are expected to
     # customize the workspace overlay post-deploy with their specific deny rules.
+    install -d "$hub/.claude"
+
     if [ -f "$overlay" ] && [ "$FORCE_CLAUDE_SETTINGS" != 1 ]; then
         install -m 644 "$render/workspace-overlay.settings.json" "$overlay.uap-proposed"
         warn "claude-settings: $overlay already exists; wrote proposed to $overlay.uap-proposed — diff and merge manually."
