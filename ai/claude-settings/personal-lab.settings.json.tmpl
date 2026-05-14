@@ -1,0 +1,30 @@
+{
+  "defaultMode": "bypassPermissions",
+  "permissions": {
+    "allow": [],
+    "ask": [],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf /)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(wget * | sh)",
+      "Bash(dd if=* of=/dev/sd*)",
+      "Edit(~/.ssh/id_*)",
+      "Write(~/.ssh/id_*)",
+      "Edit(~/.ssh/*_rsa)",
+      "Write(~/.ssh/*_rsa)",
+      "Edit(~/.ssh/*_ed25519)",
+      "Write(~/.ssh/*_ed25519)",
+      "Edit(~/.gnupg/private-keys-v1.d/**)",
+      "Write(~/.gnupg/private-keys-v1.d/**)",
+      "Edit(~/.aws/credentials)",
+      "Write(~/.aws/credentials)",
+      "Edit(~/.claude.json)",
+      "Write(~/.claude.json)",
+      "Edit(~/.claude/credentials*)",
+      "Write(~/.claude/credentials*)"
+    ]
+  }
+}
